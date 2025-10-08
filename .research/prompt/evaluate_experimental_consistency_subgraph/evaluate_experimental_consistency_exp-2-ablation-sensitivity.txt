@@ -1,0 +1,589 @@
+
+Input:
+
+# Instructions
+You are a scientific research consistency evaluator. Your task is to evaluate a single experiment to determine:
+1. Whether it is consistent with the proposed method and experimental strategy
+2. Whether the results support the main claims (e.g., proposed method outperforms baseline)
+3. Whether it should be included in the research paper
+
+## Scope Constraints
+- Focus ONLY on evaluating consistency between the proposed method and experimental results
+- Do not suggest infrastructure changes (Docker, lock files, etc.)
+- Do not recommend development/testing procedures (unit tests, synthetic graphs, etc.)
+- Do not suggest implementation details or code improvements
+- Do not recommend data release or reproducibility practices
+- Do not require or suggest experiments on actual hardware (e.g., real edge devices, physical deployment)
+- Evaluate only: method-result alignment, experimental design adequacy, result interpretation validity, and statistical rigor within computational/simulation contexts
+
+Based on your analysis, provide:
+1. `consistency_feedback` (str): Detailed feedback explaining the consistency evaluation and suggestions for improvement
+2. `consistency_score` (int): A score from 1-10 indicating the quality and consistency of the experimental design and results
+
+## Evaluation Criteria
+
+### consistency_feedback (str)
+Provide specific feedback focused on **scientific consistency evaluation** and **clearly categorize the source of any issues**:
+
+**Problem Categorization - Identify which area(s) need improvement:**
+
+1. **Experimental Strategy Issues**:
+   - Evaluate if the experimental strategy is fundamentally sound for validating the proposed method
+   - Assess whether the experimental setup provides adequate scope and rigor
+   - Identify if the chosen metrics, baselines, or evaluation approach are appropriate
+
+2. **Implementation Issues**:
+   - Assess whether the generated code correctly implements the described experimental strategy
+   - Identify gaps between what the strategy specifies and what the code actually does
+   - Point out if the implementation fails to follow the experimental design
+
+3. **Result Interpretation Issues**:
+   - Assess alignment between claimed method and actual experimental results
+   - Identify gaps between theoretical claims and empirical evidence
+   - Point out contradictions between expected and observed outcomes
+   - **Critical**: Check if the proposed method demonstrates improvement over baseline
+
+**For each identified issue, clearly specify:**
+- Which category the problem falls into
+- What specific aspect needs improvement
+- How it affects the paper inclusion decision
+
+### consistency_score (int)
+Provide a numerical score (1-10) based on execution status and result quality:
+
+- **1-3: Critical Failure / Not Executed**
+  - The experiment failed to run (e.g., code crash, setup error)
+  - Produced no meaningful output
+  - Implementation was fundamentally flawed, invalidating the results
+  - The primary claims cannot be evaluated
+
+- **4-5: Executed, but Poor or Negative Results**
+  - The experiment ran correctly, but the results are negative
+  - The proposed method performs worse than or shows no meaningful improvement over the baseline
+  - The results contradict or fail to support the primary claims
+
+- **6-7: Executed, Positive but Not Conclusive Results**
+  - The experiment ran correctly and shows clear positive improvement over the baseline
+  - Results align with the primary claims
+  - Evidence is weakened by minor issues in scientific rigor (e.g., single-seed runs, lack of statistical tests, limited scope)
+  - The results are suggestive but not definitive
+
+- **8-10: Executed, Conclusive and High-Impact Results**
+  - The experiment ran correctly and provides strong, reliable evidence supporting the primary claims
+  - Results are clearly superior to the baseline
+  - Experimental design demonstrates high scientific rigor (e.g., multiple runs, fair comparisons, statistical validation)
+  - Score of 9-10 indicates particularly impactful and insightful magnitude of improvement
+
+## Context
+
+**Proposed Method:** {
+    "Open Problems": "1. (Scope) Closed–form proximal updates in ProxTTA are limited to frozen Σ taken from the source domain. In practice, the Hessian/Fisher of the test distribution may drift, making the pre-conditioner sub-optimal or even harmful when the shift is large or non-stationary.\n2. (Expressiveness) Restricting adaptation to BN affine parameters fails when the source model uses other normalisers (LN, GN, RMSNorm) or when shifts mainly affect early convolutional filters or input statistics.\n3. (Safety) Even per-parameter trust-region steps can overshoot on extremely hard samples; a cheap on-line certificate of improvement is missing.\n4. (Latency) Skipping whole batches when the time budget is tight wastes potentially useful statistics; we need finer control that degrades gracefully instead of all-or-nothing.",
+    "Methods": "We propose AdaNPC – Adaptive Natural-gradient & Probabilistically-Certified Test-time Adaptation.\n\nKey pieces:\nA. Streaming Fisher approximation  Σ̂_t  \na) maintain an exponential moving average of squared gradients g_t ⊙ g_t.  Σ̂_t = β Σ̂_{t-1}+(1-β)(g_t^2+ϵ) (diagonal)  (β=0.99).\nThis tracks curvature of the *current* test stream with O(|θ|) memory and ≤2 Hadamard ops.\n\nB. One-shot natural update  θ_{t+1}=θ_t−η Σ̂_t^{-1/2} g_t  with fixed η=1.  Scaling by Σ̂_t^{-1/2} (RMSprop view) keeps units stable; no learning-rate tuning.\n\nC. Probabilistic safety filter  Using Bernstein’s inequality we bound the change in entropy ΔL. We accept the update only if P(ΔL>0)≤δ (δ=0.1). Cost: one inner-product and pre-computed variance proxy.\n\nD. Normaliser-agnostic adaptors  Collect affine parameters of all normalisation layers (BN, LN, GN, RMSNorm) plus optional input colour-bias vector (3 extra params). Same code path, still O(|θ|).\n\nE. Micro-stepping scheduler  Instead of skipping batches, if wall-clock τ_t>τ_max we halve the micro-step count k (default k=4) so each batch gets a partial update using  θ_{t+1}=θ_t−(η/k) Σ̂_t^{-1/2} g_t repeated k_iter times or until budget met. Guarantees monotone accuracy-vs-time trade-off.\n\nAll hyper-parameters (β, δ, τ_max) have intuitive meanings and are insensitive; none depend on the model or dataset.",
+    "Experimental Setup": "Code base: extend official Tent repo.\n\nModels & datasets: • ResNet-50-BN on ImageNet-C. • ViT-B/16-LN on ImageNet-C. • ResNet-18-GN on CIFAR-10-C. Streams: Realistic protocol with η∈{1,1/2,1/4}. Recurring PTTA Dirichlet δ=0.1.\n\nBaselines: Source, Tent, ProxTTA, EATA, RoTTA, CoTTA, Shrink-Tent.\n\nMetrics: 1) Online top-1 error under time penalty. 2) Time-to-90%-of-Tent accuracy. 3) Ratio of safe-filter rejections (<5% desired). 4) Extra memory (should <0.3 MB for R-50).",
+    "Experimental Code": "class AdaNPC(Tent):\n    def __init__(self, model, beta=0.99, delta=0.1, tau_max=None):\n        super().__init__(model, torch.optim.SGD([],lr=1))\n        self.var = None            # Σ̂_t diagonal\n        self.beta=beta; self.delta=delta\n        self.tau_max=tau_max; self.k=4  # micro-steps\n        self.timer_ema=None\n    @torch.enable_grad()\n    def forward_and_adapt(self,x,model,opt):\n        t0=time.time()\n        y=model(x); loss=softmax_entropy(y).mean()\n        g=torch.autograd.grad(loss,self.params,create_graph=False)[0]\n        if self.var is None: self.var=g.pow(2)\n        else: self.var=self.beta*self.var+(1-self.beta)*g.pow(2)+1e-8\n        step=(g/self.var.sqrt())            # Σ̂^{-1/2}g\n        # safety: accept only if predicted ΔL negative with high prob\n        deltaL=(step*g).sum()              # first-order change\n        varL=((step.pow(2)*self.var).sum()).sqrt()\n        safe=(deltaL+varL*math.sqrt(2*math.log(1/self.delta)))<0\n        if safe:\n            k=max(1,self.k)\n            eta=1.0/k\n            for _ in range(k):\n                for p,s in zip(self.params,step): p-=eta*s\n        self.timer_ema=0.8*(self.timer_ema or 0)+0.2*(time.time()-t0)\n        if self.tau_max and self.timer_ema>self.tau_max and self.k>1:\n            self.k//=2     # micro-step back-off\n        model.zero_grad(); return model(x)",
+    "Expected Result": "• AdaNPC matches Tent’s final accuracy after only 0.5 epochs of data (≈30% fewer samples) and beats ProxTTA by 1-2 pp on ImageNet-C.\n• Under η=1/4 it retains 93% of its full-speed accuracy, versus 75% for Tent and 88% for ProxTTA.\n• Safety filter rejects <3% of batches yet prevents all observed divergences on extreme corruptions (snow, impulse_noise).\n• Overhead: +|θ| vector and var buffer (0.25 MB for R-50), <5% extra FLOPs.",
+    "Expected Conclusion": "AdaNPC turns TTA into a fast, normaliser-agnostic, and self-certified one-step natural-gradient procedure. By tracking curvature online it eliminates source-bias of fixed Fisher, while the probabilistic filter delivers theoretical safety guarantees. Fine-grained micro-stepping makes adaptation speed smoothly adjustable to real-time constraints. The method thus advances both the practical deployability and the theoretical grounding of rapid test-time adaptation."
+}
+
+**Overall Experimental Strategy:** Overall Goal:
+Demonstrate that AdaNPC delivers (1) higher on-line performance, (2) better computational efficiency, (3) stronger robustness/safety and (4) wider architectural generalization than existing Test-Time Adaptation (TTA) techniques.
+
+1. Validation Axes
+   a. Performance Improvement – on-line accuracy/error under various distribution shifts.
+   b. Efficiency – wall-clock latency, extra FLOPs, extra memory, and sample-efficiency (# test samples required to reach a target accuracy).
+   c. Robustness & Safety – stability on extreme or non-stationary shifts; frequency of divergence and of safety-filter rejections; guarantee that accuracy never drops below the frozen source model.
+   d. Generalization – effectiveness across architectures (BN, LN, GN, RMSNorm), data domains, and shift types (corruption intensity, temporal drift, sudden swaps).
+   e. Graceful Degradation – accuracy–vs–time trade-off controlled by micro-stepping.
+
+2. Required Comparisons
+   • Strong baselines: Source (no TTA), Tent, ProxTTA, EATA, CoTTA, RoTTA, Shrink-Tent, and any contemporaneous state-of-the-art published before the submission deadline.
+   • Internal ablations: (i) remove streaming Fisher (fall back to fixed Σ), (ii) remove probabilistic safety filter, (iii) remove micro-stepping, (iv) adapt BN only, (v) replace natural gradient with SGD; (vi) combine two removals to test interaction effects.
+   • Sensitivity studies: vary β, δ, micro-step budget, and η to show hyper-parameter robustness.
+
+3. Experimental Angles / Evidence Modalities
+   A. Quantitative
+      • Main metric: on-line top-1 error averaged over the whole stream.
+      • Secondary: (i) area under the adaptation curve (AUC), (ii) time-to-X%-of-Tent accuracy, (iii) catastrophic failure rate (runs where error > source), (iv) % batches rejected by safety filter, (v) compute & memory overhead, (vi) energy proxy via NVIDIA-SMI.
+      • Statistical treatment: 3 independent runs × 3 random seeds; report mean ± 95% CI; paired t-tests against best baseline.
+   B. Qualitative / Diagnostic
+      • Fisher drift plots (cosine similarity between Σ̂_t and source Σ_0).
+      • Histograms of predicted ΔL vs empirical ΔL, highlighting safety bound tightness.
+      • Accuracy–vs–latency curves when throttling τ_max.
+      • Heat-map of component ablations across corruption severity.
+
+4. Multi-Perspective Demonstration Plan
+   • Orthogonal matrix: {Architectures} × {Datasets} × {Shift protocols}. Each cell runs the full comparison suite to show broad applicability.
+   • Stress tests: (i) worst-case corruptions, (ii) synthetic non-stationary drift generated on-the-fly, (iii) adversarially sorted hard batches.
+   • Real-time constraint scenario: enforce τ_max values (full, ½, ¼ of GPU budget) to showcase graceful degradation.
+   • Safety spotlight: run 10×-long streams; count divergences; compare cumulative worst-case error to baselines.
+
+5. Success Criteria (must hold on ≥80% of cells)
+   • Accuracy: AdaNPC improves mean AUC by ≥2 pp over the best competing method with p<0.05.
+   • Efficiency: <5% extra FLOPs, <0.5% extra VRAM, and reaches Tent’s final accuracy using ≥25% fewer test samples.
+   • Robustness: zero catastrophic failures; safety filter rejection rate ≤5%.
+   • Generalization: retains ≥90% of its ImageNet-C gain when ported to each other architecture/dataset without tuning.
+   • Graceful degradation: under the strictest τ_max, retains ≥90% of its own full-speed accuracy while Tent drops below 80%.
+
+6. Practical Considerations
+   • All experiments run on one NVIDIA A100 (80 GB) node; resource accounting recorded via NVTX markers and pytorch profiler.
+   • Unified codebase: start from official Tent repo, add modular hooks so baselines and AdaNPC share identical data loading, augmentation, synchronisation and precision settings.
+   • Hyper-parameter policy: AdaNPC fixed defaults; baselines get per-dataset grid search as reported in their papers to avoid under-tuning claims.
+   • Reproducibility: release seeds, config files, and slurm scripts; adherence to ML-Reproducibility Checklist.
+
+This strategy provides a consistent, multi-faceted evaluation framework that will be reused verbatim in all subsequent experiments, ensuring that every study collectively builds a compelling, well-substantiated case for the effectiveness of AdaNPC.
+
+## Current Experiment to Evaluate
+
+**Experiment ID:** exp-2-ablation-sensitivity
+
+**Experiment Description:** Objective / Hypothesis:
+Identify which algorithmic components of AdaNPC contribute most to performance, safety and efficiency, and verify that the method is stable over a wide hyper-parameter range.
+
+Model / Dataset:
+• ResNet-50 (BN) on ImageNet-C (severity 3 default stream).
+Ablations are applied only to AdaNPC to keep comparison focused.
+
+Component Definitions:
+• fixed-Fisher – replace online Σ̂_t by frozen source Σ.
+• no-safety-filter – skip Bernstein test, always step.
+• no-micro-stepping – k=1, disables adaptive τ.
+• SGD-adapter – use plain SGD (same η) instead of natural gradient.
+
+Hyper-parameter Grids:
+• β ∈ {0.9,0.95,0.99,0.999}
+• δ ∈ {0.01,0.1,0.3}
+• k_init ∈ {1,2,4,8}
+A Latin-hyper-cube sample of 20 combos is evaluated for AdaNPC-full to produce sensitivity heat-maps.
+
+Data Splitting & Seeds:
+1 fixed corruption order × 3 random seeds.
+
+Evaluation Metrics:
+Primary – AUC; Secondary – # rejections, worst-case error spike (max over stream), FLOPs/sample.
+Selection criterion for plotting – last checkpoint (no early stop).
+
+Robustness Analyses:
+• Noise-injection: Add 5 % i.i.d. impulse noise to every incoming batch online.
+• OOD Fisher Drift: Interleave severity levels 1→5 every 200 batches.
+
+Diagnostics Collected:
+• Cosine similarity between Σ̂_t and Σ_0.
+• Histogram of predicted vs empirical ΔL.
+
+Example Code Snippet:
+```bash
+python run_ablation.py \
+  --variant $VAR \
+  --beta $BETA --delta $DELTA --k_init $K \
+  --seed $SEED > logs/$VAR_$BETA_$DELTA_$K_$SEED.txt
+```
+
+**Run Variations:** ['AdaNPC-full', 'fixed-Fisher', 'no-safety-filter', 'no-micro-stepping', 'SGD-adapter']
+
+**Generated Code:** {"evaluate_py": "", "full_experiment_yaml": "", "main_py": "", "model_py": "", "preprocess_py": "", "pyproject_toml": "", "smoke_test_yaml": "", "train_py": ""}
+
+**Experimental Results:**
+
+- Result: === [PHASE 2/2] Full experiment start Wed Oct  8 05:48:21 PM UTC 2025 ===
+===================== Experiment description =====================
+{
+  "goal": "EXP-2 Ablation & Sensitivity Study on Mini-ImageNet-C (severity 3)",
+  "dataset": "niuniandaji/mini-imagenet-c \u2013 corruption benchmark",
+  "model": "ResNet-50 BN backbone with AdaNPC and ablation variants"
+}
+==================================================================
+
+===== Launching run: AdaNPC-full =====
+WARNING: niuniandaji/mini-imagenet-c has broken metadata.
+Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
+Loaded CIFAR-100: num_classes=100, samples=10000
+{"run_id": "AdaNPC-full", "final_train_loss": 2.564051915168762, "final_train_acc": 0.375625, "final_val_loss": 1.716613787651062, "final_val_acc": 0.5225, "best_val_acc": 0.5225, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.564051915168762, "train_acc": 0.375625, "val_loss": 1.716613787651062, "val_acc": 0.5225}]}
+
+===== Launching run: fixed-Fisher =====
+WARNING: niuniandaji/mini-imagenet-c has broken metadata.
+Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
+Loaded CIFAR-100: num_classes=100, samples=10000
+{"run_id": "fixed-Fisher", "final_train_loss": 2.564051915168762, "final_train_acc": 0.375625, "final_val_loss": 1.716614315032959, "final_val_acc": 0.5225, "best_val_acc": 0.5225, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.564051915168762, "train_acc": 0.375625, "val_loss": 1.716614315032959, "val_acc": 0.5225}]}
+
+===== Launching run: no-safety-filter =====
+WARNING: niuniandaji/mini-imagenet-c has broken metadata.
+Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
+Loaded CIFAR-100: num_classes=100, samples=10000
+{"run_id": "no-safety-filter", "final_train_loss": 2.572647120475769, "final_train_acc": 0.370875, "final_val_loss": NaN, "final_val_acc": 0.0245, "best_val_acc": 0.0245, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.572647120475769, "train_acc": 0.370875, "val_loss": NaN, "val_acc": 0.0245}]}
+
+===== Launching run: no-micro-stepping =====
+WARNING: niuniandaji/mini-imagenet-c has broken metadata.
+Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
+Loaded CIFAR-100: num_classes=100, samples=10000
+{"run_id": "no-micro-stepping", "final_train_loss": 2.563602472305298, "final_train_acc": 0.377375, "final_val_loss": 1.7807660751342773, "final_val_acc": 0.513, "best_val_acc": 0.513, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.563602472305298, "train_acc": 0.377375, "val_loss": 1.7807660751342773, "val_acc": 0.513}]}
+
+===== Launching run: SGD-adapter =====
+WARNING: niuniandaji/mini-imagenet-c has broken metadata.
+Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
+Loaded CIFAR-100: num_classes=100, samples=10000
+{"run_id": "SGD-adapter", "final_train_loss": 2.564195601463318, "final_train_acc": 0.375, "final_val_loss": 1.6658158264160157, "final_val_acc": 0.542, "best_val_acc": 0.542, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.564195601463318, "train_acc": 0.375, "val_loss": 1.6658158264160157, "val_acc": 0.542}]}
+
+===== Running evaluation across all variations =====
+WARNING: niuniandaji/mini-imagenet-c has broken metadata.
+Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
+Loaded CIFAR-100: num_classes=100, samples=10000
+WARNING: niuniandaji/mini-imagenet-c has broken metadata.
+Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
+Loaded CIFAR-100: num_classes=100, samples=10000
+WARNING: niuniandaji/mini-imagenet-c has broken metadata.
+Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
+Loaded CIFAR-100: num_classes=100, samples=10000
+WARNING: niuniandaji/mini-imagenet-c has broken metadata.
+Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
+Loaded CIFAR-100: num_classes=100, samples=10000
+WARNING: niuniandaji/mini-imagenet-c has broken metadata.
+Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
+Loaded CIFAR-100: num_classes=100, samples=10000
+{"n_runs": 5, "figures": ["accuracy_curve.pdf", "accuracy_comparison.pdf", "confusion_fixed-Fisher.pdf", "confusion_no-micro-stepping.pdf", "confusion_AdaNPC-full.pdf", "confusion_SGD-adapter.pdf", "confusion_no-safety-filter.pdf"], "comparative_metrics": [{"run_id": "SGD-adapter", "best_val_acc": 0.542, "final_val_acc": 0.542}, {"run_id": "AdaNPC-full", "best_val_acc": 0.5225, "final_val_acc": 0.5225}, {"run_id": "no-micro-stepping", "best_val_acc": 0.513, "final_val_acc": 0.513}, {"run_id": "no-safety-filter", "best_val_acc": 0.0245, "final_val_acc": 0.0245}, {"run_id": "fixed-Fisher", "best_val_acc": 0.5225, "final_val_acc": 0.5225}]}
+=== [PHASE 2/2] Full experiment end Wed Oct  8 05:52:08 PM UTC 2025 ===
+
+- Error: /home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet50_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet50_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:69: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler(enabled=cfg.get("mixed_precision", True) and device.type == "cuda")
+
+[AdaNPC-full] Train Epoch 1/1:   0%|          | 0/125 [00:00<?, ?it/s]/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:88: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast(enabled=scaler.is_enabled()):
+
+[AdaNPC-full] Train Epoch 1/1:   1%|          | 1/125 [00:12<26:28, 12.81s/it]
+[AdaNPC-full] Train Epoch 1/1:   2%|▏         | 3/125 [00:12<06:50,  3.36s/it]
+[AdaNPC-full] Train Epoch 1/1:   5%|▍         | 6/125 [00:13<02:38,  1.33s/it]
+[AdaNPC-full] Train Epoch 1/1:   7%|▋         | 9/125 [00:13<01:24,  1.37it/s]
+[AdaNPC-full] Train Epoch 1/1:   7%|▋         | 9/125 [00:13<01:24,  1.37it/s, loss=4.65, acc=0.0169]
+[AdaNPC-full] Train Epoch 1/1:  10%|▉         | 12/125 [00:13<00:51,  2.19it/s, loss=4.65, acc=0.0169]
+[AdaNPC-full] Train Epoch 1/1:  12%|█▏        | 15/125 [00:13<00:33,  3.26it/s, loss=4.65, acc=0.0169]
+[AdaNPC-full] Train Epoch 1/1:  14%|█▍        | 18/125 [00:13<00:23,  4.60it/s, loss=4.65, acc=0.0169]
+[AdaNPC-full] Train Epoch 1/1:  17%|█▋        | 21/125 [00:13<00:16,  6.21it/s, loss=4.65, acc=0.0169]
+[AdaNPC-full] Train Epoch 1/1:  17%|█▋        | 21/125 [00:13<00:16,  6.21it/s, loss=4.47, acc=0.043] 
+[AdaNPC-full] Train Epoch 1/1:  19%|█▉        | 24/125 [00:13<00:12,  8.05it/s, loss=4.47, acc=0.043]
+[AdaNPC-full] Train Epoch 1/1:  22%|██▏       | 27/125 [00:14<00:09, 10.05it/s, loss=4.47, acc=0.043]
+[AdaNPC-full] Train Epoch 1/1:  24%|██▍       | 30/125 [00:14<00:07, 12.07it/s, loss=4.47, acc=0.043]
+[AdaNPC-full] Train Epoch 1/1:  26%|██▋       | 33/125 [00:14<00:06, 14.03it/s, loss=4.47, acc=0.043]
+[AdaNPC-full] Train Epoch 1/1:  26%|██▋       | 33/125 [00:14<00:06, 14.03it/s, loss=4.2, acc=0.0933]
+[AdaNPC-full] Train Epoch 1/1:  29%|██▉       | 36/125 [00:14<00:05, 15.74it/s, loss=4.2, acc=0.0933]
+[AdaNPC-full] Train Epoch 1/1:  31%|███       | 39/125 [00:14<00:05, 17.19it/s, loss=4.2, acc=0.0933]
+[AdaNPC-full] Train Epoch 1/1:  34%|███▎      | 42/125 [00:14<00:04, 18.44it/s, loss=4.2, acc=0.0933]
+[AdaNPC-full] Train Epoch 1/1:  36%|███▌      | 45/125 [00:14<00:04, 19.41it/s, loss=4.2, acc=0.0933]
+[AdaNPC-full] Train Epoch 1/1:  36%|███▌      | 45/125 [00:14<00:04, 19.41it/s, loss=3.84, acc=0.158]
+[AdaNPC-full] Train Epoch 1/1:  38%|███▊      | 48/125 [00:14<00:03, 20.19it/s, loss=3.84, acc=0.158]
+[AdaNPC-full] Train Epoch 1/1:  41%|████      | 51/125 [00:15<00:03, 20.83it/s, loss=3.84, acc=0.158]
+[AdaNPC-full] Train Epoch 1/1:  43%|████▎     | 54/125 [00:15<00:03, 21.29it/s, loss=3.84, acc=0.158]
+[AdaNPC-full] Train Epoch 1/1:  46%|████▌     | 57/125 [00:15<00:03, 21.65it/s, loss=3.84, acc=0.158]
+[AdaNPC-full] Train Epoch 1/1:  46%|████▌     | 57/125 [00:15<00:03, 21.65it/s, loss=3.54, acc=0.209]
+[AdaNPC-full] Train Epoch 1/1:  48%|████▊     | 60/125 [00:15<00:02, 21.90it/s, loss=3.54, acc=0.209]
+[AdaNPC-full] Train Epoch 1/1:  50%|█████     | 63/125 [00:15<00:02, 22.10it/s, loss=3.54, acc=0.209]
+[AdaNPC-full] Train Epoch 1/1:  53%|█████▎    | 66/125 [00:15<00:02, 22.23it/s, loss=3.54, acc=0.209]
+[AdaNPC-full] Train Epoch 1/1:  55%|█████▌    | 69/125 [00:15<00:02, 22.30it/s, loss=3.54, acc=0.209]
+[AdaNPC-full] Train Epoch 1/1:  55%|█████▌    | 69/125 [00:16<00:02, 22.30it/s, loss=3.27, acc=0.254]
+[AdaNPC-full] Train Epoch 1/1:  58%|█████▊    | 72/125 [00:16<00:02, 22.36it/s, loss=3.27, acc=0.254]
+[AdaNPC-full] Train Epoch 1/1:  60%|██████    | 75/125 [00:16<00:02, 22.42it/s, loss=3.27, acc=0.254]
+[AdaNPC-full] Train Epoch 1/1:  62%|██████▏   | 78/125 [00:16<00:02, 22.42it/s, loss=3.27, acc=0.254]
+[AdaNPC-full] Train Epoch 1/1:  65%|██████▍   | 81/125 [00:16<00:01, 22.45it/s, loss=3.27, acc=0.254]
+[AdaNPC-full] Train Epoch 1/1:  65%|██████▍   | 81/125 [00:16<00:01, 22.45it/s, loss=3.04, acc=0.296]
+[AdaNPC-full] Train Epoch 1/1:  67%|██████▋   | 84/125 [00:16<00:01, 22.48it/s, loss=3.04, acc=0.296]
+[AdaNPC-full] Train Epoch 1/1:  70%|██████▉   | 87/125 [00:16<00:01, 22.48it/s, loss=3.04, acc=0.296]
+[AdaNPC-full] Train Epoch 1/1:  72%|███████▏  | 90/125 [00:16<00:01, 22.49it/s, loss=3.04, acc=0.296]
+[AdaNPC-full] Train Epoch 1/1:  74%|███████▍  | 93/125 [00:16<00:01, 22.50it/s, loss=3.04, acc=0.296]
+[AdaNPC-full] Train Epoch 1/1:  74%|███████▍  | 93/125 [00:17<00:01, 22.50it/s, loss=2.86, acc=0.325]
+[AdaNPC-full] Train Epoch 1/1:  77%|███████▋  | 96/125 [00:17<00:01, 22.46it/s, loss=2.86, acc=0.325]
+[AdaNPC-full] Train Epoch 1/1:  79%|███████▉  | 99/125 [00:17<00:01, 22.47it/s, loss=2.86, acc=0.325]
+[AdaNPC-full] Train Epoch 1/1:  82%|████████▏ | 102/125 [00:17<00:01, 22.47it/s, loss=2.86, acc=0.325]
+[AdaNPC-full] Train Epoch 1/1:  84%|████████▍ | 105/125 [00:17<00:00, 22.43it/s, loss=2.86, acc=0.325]
+[AdaNPC-full] Train Epoch 1/1:  84%|████████▍ | 105/125 [00:17<00:00, 22.43it/s, loss=2.72, acc=0.348]
+[AdaNPC-full] Train Epoch 1/1:  86%|████████▋ | 108/125 [00:17<00:00, 22.38it/s, loss=2.72, acc=0.348]
+[AdaNPC-full] Train Epoch 1/1:  89%|████████▉ | 111/125 [00:17<00:00, 22.40it/s, loss=2.72, acc=0.348]
+[AdaNPC-full] Train Epoch 1/1:  91%|█████████ | 114/125 [00:17<00:00, 22.45it/s, loss=2.72, acc=0.348]
+[AdaNPC-full] Train Epoch 1/1:  94%|█████████▎| 117/125 [00:18<00:00, 22.48it/s, loss=2.72, acc=0.348]
+[AdaNPC-full] Train Epoch 1/1:  94%|█████████▎| 117/125 [00:18<00:00, 22.48it/s, loss=2.61, acc=0.368]
+[AdaNPC-full] Train Epoch 1/1:  96%|█████████▌| 120/125 [00:18<00:00, 22.49it/s, loss=2.61, acc=0.368]
+[AdaNPC-full] Train Epoch 1/1:  98%|█████████▊| 123/125 [00:18<00:00, 22.51it/s, loss=2.61, acc=0.368]
+                                                                                                      
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet50_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet50_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:69: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler(enabled=cfg.get("mixed_precision", True) and device.type == "cuda")
+
+[fixed-Fisher] Train Epoch 1/1:   0%|          | 0/125 [00:00<?, ?it/s]/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:88: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast(enabled=scaler.is_enabled()):
+
+[fixed-Fisher] Train Epoch 1/1:   1%|          | 1/125 [00:12<26:21, 12.75s/it]
+[fixed-Fisher] Train Epoch 1/1:   2%|▏         | 3/125 [00:12<06:48,  3.35s/it]
+[fixed-Fisher] Train Epoch 1/1:   5%|▍         | 6/125 [00:13<02:37,  1.32s/it]
+[fixed-Fisher] Train Epoch 1/1:   7%|▋         | 9/125 [00:13<01:24,  1.38it/s]
+[fixed-Fisher] Train Epoch 1/1:   7%|▋         | 9/125 [00:13<01:24,  1.38it/s, loss=4.65, acc=0.0169]
+[fixed-Fisher] Train Epoch 1/1:  10%|▉         | 12/125 [00:13<00:51,  2.20it/s, loss=4.65, acc=0.0169]
+[fixed-Fisher] Train Epoch 1/1:  12%|█▏        | 15/125 [00:13<00:33,  3.28it/s, loss=4.65, acc=0.0169]
+[fixed-Fisher] Train Epoch 1/1:  14%|█▍        | 18/125 [00:13<00:23,  4.63it/s, loss=4.65, acc=0.0169]
+[fixed-Fisher] Train Epoch 1/1:  17%|█▋        | 21/125 [00:13<00:16,  6.27it/s, loss=4.65, acc=0.0169]
+[fixed-Fisher] Train Epoch 1/1:  17%|█▋        | 21/125 [00:13<00:16,  6.27it/s, loss=4.47, acc=0.043] 
+[fixed-Fisher] Train Epoch 1/1:  19%|█▉        | 24/125 [00:13<00:12,  8.13it/s, loss=4.47, acc=0.043]
+[fixed-Fisher] Train Epoch 1/1:  22%|██▏       | 27/125 [00:13<00:09, 10.13it/s, loss=4.47, acc=0.043]
+[fixed-Fisher] Train Epoch 1/1:  24%|██▍       | 30/125 [00:14<00:07, 12.12it/s, loss=4.47, acc=0.043]
+[fixed-Fisher] Train Epoch 1/1:  26%|██▋       | 33/125 [00:14<00:06, 14.04it/s, loss=4.47, acc=0.043]
+[fixed-Fisher] Train Epoch 1/1:  26%|██▋       | 33/125 [00:14<00:06, 14.04it/s, loss=4.2, acc=0.0933]
+[fixed-Fisher] Train Epoch 1/1:  29%|██▉       | 36/125 [00:14<00:05, 15.73it/s, loss=4.2, acc=0.0933]
+[fixed-Fisher] Train Epoch 1/1:  31%|███       | 39/125 [00:14<00:04, 17.20it/s, loss=4.2, acc=0.0933]
+[fixed-Fisher] Train Epoch 1/1:  34%|███▎      | 42/125 [00:14<00:04, 18.46it/s, loss=4.2, acc=0.0933]
+[fixed-Fisher] Train Epoch 1/1:  36%|███▌      | 45/125 [00:14<00:04, 19.35it/s, loss=4.2, acc=0.0933]
+[fixed-Fisher] Train Epoch 1/1:  36%|███▌      | 45/125 [00:14<00:04, 19.35it/s, loss=3.84, acc=0.158]
+[fixed-Fisher] Train Epoch 1/1:  38%|███▊      | 48/125 [00:14<00:03, 20.14it/s, loss=3.84, acc=0.158]
+[fixed-Fisher] Train Epoch 1/1:  41%|████      | 51/125 [00:15<00:03, 20.68it/s, loss=3.84, acc=0.158]
+[fixed-Fisher] Train Epoch 1/1:  43%|████▎     | 54/125 [00:15<00:03, 20.93it/s, loss=3.84, acc=0.158]
+[fixed-Fisher] Train Epoch 1/1:  46%|████▌     | 57/125 [00:15<00:03, 21.29it/s, loss=3.84, acc=0.158]
+[fixed-Fisher] Train Epoch 1/1:  46%|████▌     | 57/125 [00:15<00:03, 21.29it/s, loss=3.54, acc=0.209]
+[fixed-Fisher] Train Epoch 1/1:  48%|████▊     | 60/125 [00:15<00:03, 21.49it/s, loss=3.54, acc=0.209]
+[fixed-Fisher] Train Epoch 1/1:  50%|█████     | 63/125 [00:15<00:02, 21.72it/s, loss=3.54, acc=0.209]
+[fixed-Fisher] Train Epoch 1/1:  53%|█████▎    | 66/125 [00:15<00:02, 21.85it/s, loss=3.54, acc=0.209]
+[fixed-Fisher] Train Epoch 1/1:  55%|█████▌    | 69/125 [00:15<00:02, 21.97it/s, loss=3.54, acc=0.209]
+[fixed-Fisher] Train Epoch 1/1:  55%|█████▌    | 69/125 [00:16<00:02, 21.97it/s, loss=3.27, acc=0.254]
+[fixed-Fisher] Train Epoch 1/1:  58%|█████▊    | 72/125 [00:16<00:02, 22.03it/s, loss=3.27, acc=0.254]
+[fixed-Fisher] Train Epoch 1/1:  60%|██████    | 75/125 [00:16<00:02, 22.07it/s, loss=3.27, acc=0.254]
+[fixed-Fisher] Train Epoch 1/1:  62%|██████▏   | 78/125 [00:16<00:02, 21.94it/s, loss=3.27, acc=0.254]
+[fixed-Fisher] Train Epoch 1/1:  65%|██████▍   | 81/125 [00:16<00:02, 21.96it/s, loss=3.27, acc=0.254]
+[fixed-Fisher] Train Epoch 1/1:  65%|██████▍   | 81/125 [00:16<00:02, 21.96it/s, loss=3.04, acc=0.296]
+[fixed-Fisher] Train Epoch 1/1:  67%|██████▋   | 84/125 [00:16<00:01, 21.94it/s, loss=3.04, acc=0.296]
+[fixed-Fisher] Train Epoch 1/1:  70%|██████▉   | 87/125 [00:16<00:01, 21.93it/s, loss=3.04, acc=0.296]
+[fixed-Fisher] Train Epoch 1/1:  72%|███████▏  | 90/125 [00:16<00:01, 21.58it/s, loss=3.04, acc=0.296]
+[fixed-Fisher] Train Epoch 1/1:  74%|███████▍  | 93/125 [00:16<00:01, 21.62it/s, loss=3.04, acc=0.296]
+[fixed-Fisher] Train Epoch 1/1:  74%|███████▍  | 93/125 [00:17<00:01, 21.62it/s, loss=2.86, acc=0.325]
+[fixed-Fisher] Train Epoch 1/1:  77%|███████▋  | 96/125 [00:17<00:01, 21.81it/s, loss=2.86, acc=0.325]
+[fixed-Fisher] Train Epoch 1/1:  79%|███████▉  | 99/125 [00:17<00:01, 21.77it/s, loss=2.86, acc=0.325]
+[fixed-Fisher] Train Epoch 1/1:  82%|████████▏ | 102/125 [00:17<00:01, 21.90it/s, loss=2.86, acc=0.325]
+[fixed-Fisher] Train Epoch 1/1:  84%|████████▍ | 105/125 [00:17<00:00, 21.95it/s, loss=2.86, acc=0.325]
+[fixed-Fisher] Train Epoch 1/1:  84%|████████▍ | 105/125 [00:17<00:00, 21.95it/s, loss=2.72, acc=0.348]
+[fixed-Fisher] Train Epoch 1/1:  86%|████████▋ | 108/125 [00:17<00:00, 21.79it/s, loss=2.72, acc=0.348]
+[fixed-Fisher] Train Epoch 1/1:  89%|████████▉ | 111/125 [00:17<00:00, 21.89it/s, loss=2.72, acc=0.348]
+[fixed-Fisher] Train Epoch 1/1:  91%|█████████ | 114/125 [00:17<00:00, 21.97it/s, loss=2.72, acc=0.348]
+[fixed-Fisher] Train Epoch 1/1:  94%|█████████▎| 117/125 [00:18<00:00, 22.02it/s, loss=2.72, acc=0.348]
+[fixed-Fisher] Train Epoch 1/1:  94%|█████████▎| 117/125 [00:18<00:00, 22.02it/s, loss=2.61, acc=0.368]
+[fixed-Fisher] Train Epoch 1/1:  96%|█████████▌| 120/125 [00:18<00:00, 22.10it/s, loss=2.61, acc=0.368]
+[fixed-Fisher] Train Epoch 1/1:  98%|█████████▊| 123/125 [00:18<00:00, 22.14it/s, loss=2.61, acc=0.368]
+                                                                                                       
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet50_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet50_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:69: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler(enabled=cfg.get("mixed_precision", True) and device.type == "cuda")
+
+[no-safety-filter] Train Epoch 1/1:   0%|          | 0/125 [00:00<?, ?it/s]/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:88: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast(enabled=scaler.is_enabled()):
+
+[no-safety-filter] Train Epoch 1/1:   1%|          | 1/125 [00:12<26:24, 12.78s/it]
+[no-safety-filter] Train Epoch 1/1:   2%|▏         | 3/125 [00:12<06:49,  3.36s/it]
+[no-safety-filter] Train Epoch 1/1:   5%|▍         | 6/125 [00:13<02:37,  1.33s/it]
+[no-safety-filter] Train Epoch 1/1:   7%|▋         | 9/125 [00:13<01:24,  1.37it/s]
+[no-safety-filter] Train Epoch 1/1:   7%|▋         | 9/125 [00:13<01:24,  1.37it/s, loss=4.64, acc=0.0156]
+[no-safety-filter] Train Epoch 1/1:  10%|▉         | 12/125 [00:13<00:51,  2.20it/s, loss=4.64, acc=0.0156]
+[no-safety-filter] Train Epoch 1/1:  12%|█▏        | 15/125 [00:13<00:33,  3.28it/s, loss=4.64, acc=0.0156]
+[no-safety-filter] Train Epoch 1/1:  14%|█▍        | 18/125 [00:13<00:23,  4.63it/s, loss=4.64, acc=0.0156]
+[no-safety-filter] Train Epoch 1/1:  17%|█▋        | 21/125 [00:13<00:16,  6.26it/s, loss=4.64, acc=0.0156]
+[no-safety-filter] Train Epoch 1/1:  17%|█▋        | 21/125 [00:13<00:16,  6.26it/s, loss=4.46, acc=0.0462]
+[no-safety-filter] Train Epoch 1/1:  19%|█▉        | 24/125 [00:13<00:12,  8.14it/s, loss=4.46, acc=0.0462]
+[no-safety-filter] Train Epoch 1/1:  22%|██▏       | 27/125 [00:13<00:09, 10.18it/s, loss=4.46, acc=0.0462]
+[no-safety-filter] Train Epoch 1/1:  24%|██▍       | 30/125 [00:14<00:07, 12.26it/s, loss=4.46, acc=0.0462]
+[no-safety-filter] Train Epoch 1/1:  26%|██▋       | 33/125 [00:14<00:06, 14.25it/s, loss=4.46, acc=0.0462]
+[no-safety-filter] Train Epoch 1/1:  26%|██▋       | 33/125 [00:14<00:06, 14.25it/s, loss=4.19, acc=0.0933]
+[no-safety-filter] Train Epoch 1/1:  29%|██▉       | 36/125 [00:14<00:05, 16.05it/s, loss=4.19, acc=0.0933]
+[no-safety-filter] Train Epoch 1/1:  31%|███       | 39/125 [00:14<00:04, 17.55it/s, loss=4.19, acc=0.0933]
+[no-safety-filter] Train Epoch 1/1:  34%|███▎      | 42/125 [00:14<00:04, 18.82it/s, loss=4.19, acc=0.0933]
+[no-safety-filter] Train Epoch 1/1:  36%|███▌      | 45/125 [00:14<00:04, 19.81it/s, loss=4.19, acc=0.0933]
+[no-safety-filter] Train Epoch 1/1:  36%|███▌      | 45/125 [00:14<00:04, 19.81it/s, loss=3.83, acc=0.158] 
+[no-safety-filter] Train Epoch 1/1:  38%|███▊      | 48/125 [00:14<00:03, 20.56it/s, loss=3.83, acc=0.158]
+[no-safety-filter] Train Epoch 1/1:  41%|████      | 51/125 [00:15<00:03, 21.13it/s, loss=3.83, acc=0.158]
+[no-safety-filter] Train Epoch 1/1:  43%|████▎     | 54/125 [00:15<00:03, 21.54it/s, loss=3.83, acc=0.158]
+[no-safety-filter] Train Epoch 1/1:  46%|████▌     | 57/125 [00:15<00:03, 21.83it/s, loss=3.83, acc=0.158]
+[no-safety-filter] Train Epoch 1/1:  46%|████▌     | 57/125 [00:15<00:03, 21.83it/s, loss=3.53, acc=0.206]
+[no-safety-filter] Train Epoch 1/1:  48%|████▊     | 60/125 [00:15<00:02, 22.04it/s, loss=3.53, acc=0.206]
+[no-safety-filter] Train Epoch 1/1:  50%|█████     | 63/125 [00:15<00:02, 22.19it/s, loss=3.53, acc=0.206]
+[no-safety-filter] Train Epoch 1/1:  53%|█████▎    | 66/125 [00:15<00:02, 22.29it/s, loss=3.53, acc=0.206]
+[no-safety-filter] Train Epoch 1/1:  55%|█████▌    | 69/125 [00:15<00:02, 22.37it/s, loss=3.53, acc=0.206]
+[no-safety-filter] Train Epoch 1/1:  55%|█████▌    | 69/125 [00:15<00:02, 22.37it/s, loss=3.26, acc=0.254]
+[no-safety-filter] Train Epoch 1/1:  58%|█████▊    | 72/125 [00:15<00:02, 22.42it/s, loss=3.26, acc=0.254]
+[no-safety-filter] Train Epoch 1/1:  60%|██████    | 75/125 [00:16<00:02, 22.46it/s, loss=3.26, acc=0.254]
+[no-safety-filter] Train Epoch 1/1:  62%|██████▏   | 78/125 [00:16<00:02, 22.50it/s, loss=3.26, acc=0.254]
+[no-safety-filter] Train Epoch 1/1:  65%|██████▍   | 81/125 [00:16<00:01, 22.52it/s, loss=3.26, acc=0.254]
+[no-safety-filter] Train Epoch 1/1:  65%|██████▍   | 81/125 [00:16<00:01, 22.52it/s, loss=3.03, acc=0.297]
+[no-safety-filter] Train Epoch 1/1:  67%|██████▋   | 84/125 [00:16<00:01, 22.53it/s, loss=3.03, acc=0.297]
+[no-safety-filter] Train Epoch 1/1:  70%|██████▉   | 87/125 [00:16<00:01, 22.42it/s, loss=3.03, acc=0.297]
+[no-safety-filter] Train Epoch 1/1:  72%|███████▏  | 90/125 [00:16<00:01, 22.44it/s, loss=3.03, acc=0.297]
+[no-safety-filter] Train Epoch 1/1:  74%|███████▍  | 93/125 [00:16<00:01, 22.47it/s, loss=3.03, acc=0.297]
+[no-safety-filter] Train Epoch 1/1:  74%|███████▍  | 93/125 [00:17<00:01, 22.47it/s, loss=2.86, acc=0.325]
+[no-safety-filter] Train Epoch 1/1:  77%|███████▋  | 96/125 [00:17<00:01, 22.49it/s, loss=2.86, acc=0.325]
+[no-safety-filter] Train Epoch 1/1:  79%|███████▉  | 99/125 [00:17<00:01, 22.51it/s, loss=2.86, acc=0.325]
+[no-safety-filter] Train Epoch 1/1:  82%|████████▏ | 102/125 [00:17<00:01, 22.51it/s, loss=2.86, acc=0.325]
+[no-safety-filter] Train Epoch 1/1:  84%|████████▍ | 105/125 [00:17<00:00, 22.52it/s, loss=2.86, acc=0.325]
+[no-safety-filter] Train Epoch 1/1:  84%|████████▍ | 105/125 [00:17<00:00, 22.52it/s, loss=2.73, acc=0.344]
+[no-safety-filter] Train Epoch 1/1:  86%|████████▋ | 108/125 [00:17<00:00, 22.53it/s, loss=2.73, acc=0.344]
+[no-safety-filter] Train Epoch 1/1:  89%|████████▉ | 111/125 [00:17<00:00, 22.51it/s, loss=2.73, acc=0.344]
+[no-safety-filter] Train Epoch 1/1:  91%|█████████ | 114/125 [00:17<00:00, 22.55it/s, loss=2.73, acc=0.344]
+[no-safety-filter] Train Epoch 1/1:  94%|█████████▎| 117/125 [00:17<00:00, 22.57it/s, loss=2.73, acc=0.344]
+[no-safety-filter] Train Epoch 1/1:  94%|█████████▎| 117/125 [00:18<00:00, 22.57it/s, loss=2.62, acc=0.362]
+[no-safety-filter] Train Epoch 1/1:  96%|█████████▌| 120/125 [00:18<00:00, 22.53it/s, loss=2.62, acc=0.362]
+[no-safety-filter] Train Epoch 1/1:  98%|█████████▊| 123/125 [00:18<00:00, 22.54it/s, loss=2.62, acc=0.362]
+                                                                                                           
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet50_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet50_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:69: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler(enabled=cfg.get("mixed_precision", True) and device.type == "cuda")
+
+[no-micro-stepping] Train Epoch 1/1:   0%|          | 0/125 [00:00<?, ?it/s]/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:88: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast(enabled=scaler.is_enabled()):
+
+[no-micro-stepping] Train Epoch 1/1:   1%|          | 1/125 [00:12<26:21, 12.76s/it]
+[no-micro-stepping] Train Epoch 1/1:   2%|▏         | 3/125 [00:12<06:48,  3.35s/it]
+[no-micro-stepping] Train Epoch 1/1:   5%|▍         | 6/125 [00:13<02:37,  1.32s/it]
+[no-micro-stepping] Train Epoch 1/1:   7%|▋         | 9/125 [00:13<01:24,  1.38it/s]
+[no-micro-stepping] Train Epoch 1/1:   7%|▋         | 9/125 [00:13<01:24,  1.38it/s, loss=4.64, acc=0.0156]
+[no-micro-stepping] Train Epoch 1/1:  10%|▉         | 12/125 [00:13<00:51,  2.20it/s, loss=4.64, acc=0.0156]
+[no-micro-stepping] Train Epoch 1/1:  12%|█▏        | 15/125 [00:13<00:33,  3.28it/s, loss=4.64, acc=0.0156]
+[no-micro-stepping] Train Epoch 1/1:  14%|█▍        | 18/125 [00:13<00:23,  4.63it/s, loss=4.64, acc=0.0156]
+[no-micro-stepping] Train Epoch 1/1:  17%|█▋        | 21/125 [00:13<00:16,  6.25it/s, loss=4.64, acc=0.0156]
+[no-micro-stepping] Train Epoch 1/1:  17%|█▋        | 21/125 [00:13<00:16,  6.25it/s, loss=4.46, acc=0.041] 
+[no-micro-stepping] Train Epoch 1/1:  19%|█▉        | 24/125 [00:13<00:12,  8.11it/s, loss=4.46, acc=0.041]
+[no-micro-stepping] Train Epoch 1/1:  22%|██▏       | 27/125 [00:13<00:09, 10.12it/s, loss=4.46, acc=0.041]
+[no-micro-stepping] Train Epoch 1/1:  24%|██▍       | 30/125 [00:14<00:07, 12.18it/s, loss=4.46, acc=0.041]
+[no-micro-stepping] Train Epoch 1/1:  26%|██▋       | 33/125 [00:14<00:06, 14.12it/s, loss=4.46, acc=0.041]
+[no-micro-stepping] Train Epoch 1/1:  26%|██▋       | 33/125 [00:14<00:06, 14.12it/s, loss=4.19, acc=0.0929]
+[no-micro-stepping] Train Epoch 1/1:  29%|██▉       | 36/125 [00:14<00:05, 15.88it/s, loss=4.19, acc=0.0929]
+[no-micro-stepping] Train Epoch 1/1:  31%|███       | 39/125 [00:14<00:04, 17.31it/s, loss=4.19, acc=0.0929]
+[no-micro-stepping] Train Epoch 1/1:  34%|███▎      | 42/125 [00:14<00:04, 18.54it/s, loss=4.19, acc=0.0929]
+[no-micro-stepping] Train Epoch 1/1:  36%|███▌      | 45/125 [00:14<00:04, 19.54it/s, loss=4.19, acc=0.0929]
+[no-micro-stepping] Train Epoch 1/1:  36%|███▌      | 45/125 [00:14<00:04, 19.54it/s, loss=3.83, acc=0.159] 
+[no-micro-stepping] Train Epoch 1/1:  38%|███▊      | 48/125 [00:14<00:03, 20.25it/s, loss=3.83, acc=0.159]
+[no-micro-stepping] Train Epoch 1/1:  41%|████      | 51/125 [00:15<00:03, 20.76it/s, loss=3.83, acc=0.159]
+[no-micro-stepping] Train Epoch 1/1:  43%|████▎     | 54/125 [00:15<00:03, 21.21it/s, loss=3.83, acc=0.159]
+[no-micro-stepping] Train Epoch 1/1:  46%|████▌     | 57/125 [00:15<00:03, 21.41it/s, loss=3.83, acc=0.159]
+[no-micro-stepping] Train Epoch 1/1:  46%|████▌     | 57/125 [00:15<00:03, 21.41it/s, loss=3.53, acc=0.209]
+[no-micro-stepping] Train Epoch 1/1:  48%|████▊     | 60/125 [00:15<00:03, 21.59it/s, loss=3.53, acc=0.209]
+[no-micro-stepping] Train Epoch 1/1:  50%|█████     | 63/125 [00:15<00:02, 21.73it/s, loss=3.53, acc=0.209]
+[no-micro-stepping] Train Epoch 1/1:  53%|█████▎    | 66/125 [00:15<00:02, 21.84it/s, loss=3.53, acc=0.209]
+[no-micro-stepping] Train Epoch 1/1:  55%|█████▌    | 69/125 [00:15<00:02, 21.97it/s, loss=3.53, acc=0.209]
+[no-micro-stepping] Train Epoch 1/1:  55%|█████▌    | 69/125 [00:15<00:02, 21.97it/s, loss=3.26, acc=0.258]
+[no-micro-stepping] Train Epoch 1/1:  58%|█████▊    | 72/125 [00:15<00:02, 22.03it/s, loss=3.26, acc=0.258]
+[no-micro-stepping] Train Epoch 1/1:  60%|██████    | 75/125 [00:16<00:02, 21.91it/s, loss=3.26, acc=0.258]
+[no-micro-stepping] Train Epoch 1/1:  62%|██████▏   | 78/125 [00:16<00:02, 22.03it/s, loss=3.26, acc=0.258]
+[no-micro-stepping] Train Epoch 1/1:  65%|██████▍   | 81/125 [00:16<00:01, 22.05it/s, loss=3.26, acc=0.258]
+[no-micro-stepping] Train Epoch 1/1:  65%|██████▍   | 81/125 [00:16<00:01, 22.05it/s, loss=3.03, acc=0.3]  
+[no-micro-stepping] Train Epoch 1/1:  67%|██████▋   | 84/125 [00:16<00:01, 22.08it/s, loss=3.03, acc=0.3]
+[no-micro-stepping] Train Epoch 1/1:  70%|██████▉   | 87/125 [00:16<00:01, 22.14it/s, loss=3.03, acc=0.3]
+[no-micro-stepping] Train Epoch 1/1:  72%|███████▏  | 90/125 [00:16<00:01, 22.10it/s, loss=3.03, acc=0.3]
+[no-micro-stepping] Train Epoch 1/1:  74%|███████▍  | 93/125 [00:16<00:01, 22.16it/s, loss=3.03, acc=0.3]
+[no-micro-stepping] Train Epoch 1/1:  74%|███████▍  | 93/125 [00:17<00:01, 22.16it/s, loss=2.86, acc=0.326]
+[no-micro-stepping] Train Epoch 1/1:  77%|███████▋  | 96/125 [00:17<00:01, 22.15it/s, loss=2.86, acc=0.326]
+[no-micro-stepping] Train Epoch 1/1:  79%|███████▉  | 99/125 [00:17<00:01, 22.18it/s, loss=2.86, acc=0.326]
+[no-micro-stepping] Train Epoch 1/1:  82%|████████▏ | 102/125 [00:17<00:01, 22.20it/s, loss=2.86, acc=0.326]
+[no-micro-stepping] Train Epoch 1/1:  84%|████████▍ | 105/125 [00:17<00:00, 22.15it/s, loss=2.86, acc=0.326]
+[no-micro-stepping] Train Epoch 1/1:  84%|████████▍ | 105/125 [00:17<00:00, 22.15it/s, loss=2.72, acc=0.348]
+[no-micro-stepping] Train Epoch 1/1:  86%|████████▋ | 108/125 [00:17<00:00, 22.15it/s, loss=2.72, acc=0.348]
+[no-micro-stepping] Train Epoch 1/1:  89%|████████▉ | 111/125 [00:17<00:00, 22.17it/s, loss=2.72, acc=0.348]
+[no-micro-stepping] Train Epoch 1/1:  91%|█████████ | 114/125 [00:17<00:00, 22.18it/s, loss=2.72, acc=0.348]
+[no-micro-stepping] Train Epoch 1/1:  94%|█████████▎| 117/125 [00:18<00:00, 22.22it/s, loss=2.72, acc=0.348]
+[no-micro-stepping] Train Epoch 1/1:  94%|█████████▎| 117/125 [00:18<00:00, 22.22it/s, loss=2.61, acc=0.369]
+[no-micro-stepping] Train Epoch 1/1:  96%|█████████▌| 120/125 [00:18<00:00, 22.23it/s, loss=2.61, acc=0.369]
+[no-micro-stepping] Train Epoch 1/1:  98%|█████████▊| 123/125 [00:18<00:00, 22.23it/s, loss=2.61, acc=0.369]
+                                                                                                            
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet50_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet50_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:69: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler(enabled=cfg.get("mixed_precision", True) and device.type == "cuda")
+
+[SGD-adapter] Train Epoch 1/1:   0%|          | 0/125 [00:00<?, ?it/s]/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:88: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast(enabled=scaler.is_enabled()):
+
+[SGD-adapter] Train Epoch 1/1:   1%|          | 1/125 [00:12<26:11, 12.67s/it]
+[SGD-adapter] Train Epoch 1/1:   2%|▏         | 3/125 [00:12<06:45,  3.33s/it]
+[SGD-adapter] Train Epoch 1/1:   5%|▍         | 6/125 [00:12<02:36,  1.32s/it]
+[SGD-adapter] Train Epoch 1/1:   7%|▋         | 9/125 [00:13<01:23,  1.39it/s]
+[SGD-adapter] Train Epoch 1/1:   7%|▋         | 9/125 [00:13<01:23,  1.39it/s, loss=4.64, acc=0.0195]
+[SGD-adapter] Train Epoch 1/1:  10%|▉         | 12/125 [00:13<00:50,  2.22it/s, loss=4.64, acc=0.0195]
+[SGD-adapter] Train Epoch 1/1:  12%|█▏        | 15/125 [00:13<00:33,  3.29it/s, loss=4.64, acc=0.0195]
+[SGD-adapter] Train Epoch 1/1:  14%|█▍        | 18/125 [00:13<00:23,  4.64it/s, loss=4.64, acc=0.0195]
+[SGD-adapter] Train Epoch 1/1:  17%|█▋        | 21/125 [00:13<00:16,  6.27it/s, loss=4.64, acc=0.0195]
+[SGD-adapter] Train Epoch 1/1:  17%|█▋        | 21/125 [00:13<00:16,  6.27it/s, loss=4.47, acc=0.0462]
+[SGD-adapter] Train Epoch 1/1:  19%|█▉        | 24/125 [00:13<00:12,  8.13it/s, loss=4.47, acc=0.0462]
+[SGD-adapter] Train Epoch 1/1:  22%|██▏       | 27/125 [00:13<00:09, 10.13it/s, loss=4.47, acc=0.0462]
+[SGD-adapter] Train Epoch 1/1:  24%|██▍       | 30/125 [00:14<00:07, 12.16it/s, loss=4.47, acc=0.0462]
+[SGD-adapter] Train Epoch 1/1:  26%|██▋       | 33/125 [00:14<00:06, 14.08it/s, loss=4.47, acc=0.0462]
+[SGD-adapter] Train Epoch 1/1:  26%|██▋       | 33/125 [00:14<00:06, 14.08it/s, loss=4.19, acc=0.0968]
+[SGD-adapter] Train Epoch 1/1:  29%|██▉       | 36/125 [00:14<00:05, 15.84it/s, loss=4.19, acc=0.0968]
+[SGD-adapter] Train Epoch 1/1:  31%|███       | 39/125 [00:14<00:04, 17.26it/s, loss=4.19, acc=0.0968]
+[SGD-adapter] Train Epoch 1/1:  34%|███▎      | 42/125 [00:14<00:04, 18.45it/s, loss=4.19, acc=0.0968]
+[SGD-adapter] Train Epoch 1/1:  36%|███▌      | 45/125 [00:14<00:04, 19.42it/s, loss=4.19, acc=0.0968]
+[SGD-adapter] Train Epoch 1/1:  36%|███▌      | 45/125 [00:14<00:04, 19.42it/s, loss=3.83, acc=0.159] 
+[SGD-adapter] Train Epoch 1/1:  38%|███▊      | 48/125 [00:14<00:03, 20.12it/s, loss=3.83, acc=0.159]
+[SGD-adapter] Train Epoch 1/1:  41%|████      | 51/125 [00:14<00:03, 20.64it/s, loss=3.83, acc=0.159]
+[SGD-adapter] Train Epoch 1/1:  43%|████▎     | 54/125 [00:15<00:03, 20.91it/s, loss=3.83, acc=0.159]
+[SGD-adapter] Train Epoch 1/1:  46%|████▌     | 57/125 [00:15<00:03, 21.20it/s, loss=3.83, acc=0.159]
+[SGD-adapter] Train Epoch 1/1:  46%|████▌     | 57/125 [00:15<00:03, 21.20it/s, loss=3.52, acc=0.209]
+[SGD-adapter] Train Epoch 1/1:  48%|████▊     | 60/125 [00:15<00:03, 21.49it/s, loss=3.52, acc=0.209]
+[SGD-adapter] Train Epoch 1/1:  50%|█████     | 63/125 [00:15<00:02, 21.49it/s, loss=3.52, acc=0.209]
+[SGD-adapter] Train Epoch 1/1:  53%|█████▎    | 66/125 [00:15<00:02, 21.67it/s, loss=3.52, acc=0.209]
+[SGD-adapter] Train Epoch 1/1:  55%|█████▌    | 69/125 [00:15<00:02, 21.82it/s, loss=3.52, acc=0.209]
+[SGD-adapter] Train Epoch 1/1:  55%|█████▌    | 69/125 [00:15<00:02, 21.82it/s, loss=3.25, acc=0.258]
+[SGD-adapter] Train Epoch 1/1:  58%|█████▊    | 72/125 [00:15<00:02, 21.90it/s, loss=3.25, acc=0.258]
+[SGD-adapter] Train Epoch 1/1:  60%|██████    | 75/125 [00:16<00:02, 21.99it/s, loss=3.25, acc=0.258]
+[SGD-adapter] Train Epoch 1/1:  62%|██████▏   | 78/125 [00:16<00:02, 22.05it/s, loss=3.25, acc=0.258]
+[SGD-adapter] Train Epoch 1/1:  65%|██████▍   | 81/125 [00:16<00:02, 21.93it/s, loss=3.25, acc=0.258]
+[SGD-adapter] Train Epoch 1/1:  65%|██████▍   | 81/125 [00:16<00:02, 21.93it/s, loss=3.02, acc=0.301]
+[SGD-adapter] Train Epoch 1/1:  67%|██████▋   | 84/125 [00:16<00:01, 22.12it/s, loss=3.02, acc=0.301]
+[SGD-adapter] Train Epoch 1/1:  70%|██████▉   | 87/125 [00:16<00:01, 22.26it/s, loss=3.02, acc=0.301]
+[SGD-adapter] Train Epoch 1/1:  72%|███████▏  | 90/125 [00:16<00:01, 22.35it/s, loss=3.02, acc=0.301]
+[SGD-adapter] Train Epoch 1/1:  74%|███████▍  | 93/125 [00:16<00:01, 22.43it/s, loss=3.02, acc=0.301]
+[SGD-adapter] Train Epoch 1/1:  74%|███████▍  | 93/125 [00:17<00:01, 22.43it/s, loss=2.85, acc=0.329]
+[SGD-adapter] Train Epoch 1/1:  77%|███████▋  | 96/125 [00:17<00:01, 22.48it/s, loss=2.85, acc=0.329]
+[SGD-adapter] Train Epoch 1/1:  79%|███████▉  | 99/125 [00:17<00:01, 22.51it/s, loss=2.85, acc=0.329]
+[SGD-adapter] Train Epoch 1/1:  82%|████████▏ | 102/125 [00:17<00:01, 22.53it/s, loss=2.85, acc=0.329]
+[SGD-adapter] Train Epoch 1/1:  84%|████████▍ | 105/125 [00:17<00:00, 22.52it/s, loss=2.85, acc=0.329]
+[SGD-adapter] Train Epoch 1/1:  84%|████████▍ | 105/125 [00:17<00:00, 22.52it/s, loss=2.72, acc=0.349]
+[SGD-adapter] Train Epoch 1/1:  86%|████████▋ | 108/125 [00:17<00:00, 22.54it/s, loss=2.72, acc=0.349]
+[SGD-adapter] Train Epoch 1/1:  89%|████████▉ | 111/125 [00:17<00:00, 22.54it/s, loss=2.72, acc=0.349]
+[SGD-adapter] Train Epoch 1/1:  91%|█████████ | 114/125 [00:17<00:00, 22.56it/s, loss=2.72, acc=0.349]
+[SGD-adapter] Train Epoch 1/1:  94%|█████████▎| 117/125 [00:17<00:00, 22.60it/s, loss=2.72, acc=0.349]
+[SGD-adapter] Train Epoch 1/1:  94%|█████████▎| 117/125 [00:18<00:00, 22.60it/s, loss=2.61, acc=0.367]
+[SGD-adapter] Train Epoch 1/1:  96%|█████████▌| 120/125 [00:18<00:00, 22.60it/s, loss=2.61, acc=0.367]
+[SGD-adapter] Train Epoch 1/1:  98%|█████████▊| 123/125 [00:18<00:00, 22.59it/s, loss=2.61, acc=0.367]
+                                                                                                      
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet50_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet50_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet50_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet50_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet50_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet50_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet50_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet50_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/t-80-8-a/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=ResNet50_Weights.IMAGENET1K_V1`. You can also use `weights=ResNet50_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+
+- Images: ['accuracy_comparison.pdf', 'accuracy_curve.pdf', 'confusion_AdaNPC-full.pdf', 'confusion_SGD-adapter.pdf', 'confusion_fixed-Fisher.pdf', 'confusion_no-micro-stepping.pdf', 'confusion_no-safety-filter.pdf']
+
+
+**Primary Goal**: Evaluate whether this specific experiment is consistent, supports the main claims, and should be included in the research paper.
+Output:
+{
+    "consistency_feedback": "Summary: the ablation/sensitivity experiment is scientifically unusable in its current form.\n\n1. Experimental-Strategy Issues\n   • Dataset/stream mismatch – the plan calls for ResNet-50 on ImageNet-C (severity-3 online stream).  The run silently falls back to CIFAR-100 and then **trains for one epoch** instead of performing on-line test-time adaptation.  None of the stated primary metrics (AUC, on-line error, safety-rejection rate, FLOPs/sample) are produced.\n   • Evaluation scope – only one seed, one corruption order, and only 125 mini-batches are processed, far below the strategy requirement (3 seeds × full 50K-sample ImageNet-C stream).  The Latin-hypercube hyper-grid for sensitivity is not executed; β, δ, k are never varied.\n\n2. Implementation Issues\n   • The code that is executed is the generic “train.py” loop that *finetunes* the model (autocast, GradScaler, backward passes) rather than invoking AdaNPC’s `forward_and_adapt` one-shot update.  Consequently the ablation flags (fixed-Fisher, safety filter, etc.) have no effect on the parameter updates; this explains why AdaNPC-full and fixed-Fisher give identical numbers.\n   • Metrics stored in the JSON (final_train_acc, final_val_acc) are standard supervised-training statistics, not on-line TTA metrics.  Safety-filter counts, Σ-drift and FLOP accounting are missing.\n\n3. Result-Interpretation Issues\n   • Because the run is essentially a short supervised finetuning session on CIFAR-100, the numerical outcomes say nothing about AdaNPC’s claimed advantages.  In fact, the “SGD-adapter” variant outperforms AdaNPC-full (54.2 % vs 52.3 % val-acc), directly contradicting the claim that the natural-gradient step is crucial.\n   • The paper’s main hypothesis—that streaming Fisher + safety filter accelerates adaptation while preserving accuracy—cannot be evaluated from these numbers.\n\nImpact on inclusion decision: this experiment, in its current form, does not test the intended hypothesis, uses the wrong data, produces irrelevant metrics, and even shows AdaNPC under-performing an ablation.  Including it would weaken the paper and confuse readers.\n\nSuggestions (within allowed scope):\n• Re-run on the correct ImageNet-C stream with the dedicated AdaNPC TTA loop.\n• Ensure ablation flags modify the update rule actually used during inference.\n• Collect and report the prescribed on-line metrics and hyper-parameter sweeps.\n",
+    "consistency_score": 2
+}
