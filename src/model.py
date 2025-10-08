@@ -154,12 +154,13 @@ class ProxTTAAdaptor(_TTAWrapper):
         for p in self.params:
             p.requires_grad_(True)
         self.opt = torch.optim.SGD(self.params, lr=lr, momentum=momentum)
-        # keep a frozen copy as reference for proximal term
-        self._theta0 = [p.clone().detach() for p in self.params]
         self.lamb = lamb
+        self._theta0 = None
 
     @torch.enable_grad()
     def _forward_and_adapt(self, x):
+        if self._theta0 is None:
+            self._theta0 = [p.clone().detach() for p in self.params]
         self.base_model.train()
         logits = self.base_model(x)
         ent_loss = softmax_entropy(logits).mean()

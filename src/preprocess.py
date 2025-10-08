@@ -116,7 +116,7 @@ def get_dataset(cfg: Dict[str, Any]):
     if "imagenet_c" in ds_name or "imagenet-c" in ds_name:
         if load_dataset is None:
             raise RuntimeError("datasets library required for ImageNet-C loading")
-        hf_ds = load_dataset("ang9867/ImageNet-C", split="test", trust_remote_code=False)
+        hf_ds = load_dataset("ang9867/ImageNet-C", split="train", trust_remote_code=False)
         num_classes = 1000
         full = HFDataset(hf_ds, test_tfms)
         # simple random split 90/10 – we do *not* train, but keep API consistent

@@ -1,0 +1,10 @@
+=== [PHASE 2/2] Full experiment start Wed Oct  8 06:37:34 AM UTC 2025 ===
+===================== Experiment description =====================
+{
+  "experiment_id": "exp-1-main-performance",
+  "goal": "Compare AdaNPC with Source, Tent, ProxTTA and EATA on ImageNet-C & CIFAR10-C.",
+  "note": "Each run trains a small supervised epoch so the pipeline (data-load \u2192 checkpoint \u2192 evaluation) is exercised end-to-end. Real TTA evaluation happens during validation where the wrappers perform adaptation."
+}
+==================================================================
+
+===== Launching run: imagenet_resnet50_source =====
