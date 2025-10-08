@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+The paper first establishes a theoretical foundation using an ϵ-perturbed Gaussian Mixture Model Classifier (ϵ-GMMC) to simulate and analyze model collapse, identifying data- and algorithm-dependent factors. Based on these insights, it proposes Persistent TTA (PeTTA). PeTTA employs a divergence sensing mechanism that measures the Mahalanobis distance of feature embedding vectors from the source model's statistics (γy t). This sensed divergence (¯γt) is then used to adaptively adjust the regularization coefficient (λt) and the exponential moving average (EMA) update rate (αt) of the mean-teacher model, balancing adaptation and collapse prevention. It also incorporates an anchor loss (LAL) to minimize KL divergence between the current and source model's output probabilities, along with a category-balanced memory bank and robust batch normalization from prior work.
+
+# GitHub URLs List
+['https://github.com/oripress/CCC', 'https://github.com/DianCh/AdaContrast', 'https://github.com/BIT-DA/RoTTA', 'https://github.com/mariodoebler/test-time-adaptation', 'https://github.com/hendrycks/robustness']
+Output:
+{
+    "index": 2
+}
