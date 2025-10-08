@@ -1,0 +1,123 @@
+description:
+  goal: End-to-end smoke test covering ALL run variations with minimal data.
+  dataset: Torchvision FakeData (1 k train / 0.2 k val)
+  models: ResNet-18 baseline, Tent and AdaNPC
+
+author: "COMMON CORE"
+experiments:
+  # -----------------------------------------------------------------------
+  # 1) Source – no adaptation
+  # -----------------------------------------------------------------------
+  - run_id: source_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: none
+    training:
+      epochs: 1
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  # -----------------------------------------------------------------------
+  # 2) Tent – mimic τ=0.25 budget (no real wall-clock check here)
+  # -----------------------------------------------------------------------
+  - run_id: tent_tau0.25_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: tent
+      tent:
+        lr: 1e-3
+        tau_max: 0.25
+    training:
+      epochs: 1
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  # -----------------------------------------------------------------------
+  # 3-5) AdaNPC with three latency budgets
+  # -----------------------------------------------------------------------
+  - run_id: adanpc_tau1.0_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: adanpc
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        tau_max: null   # full budget (τ=1.0)
+        micro_steps: 4
+    training:
+      epochs: 1
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  - run_id: adanpc_tau0.5_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: adanpc
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        tau_max: 0.5
+        micro_steps: 4
+    training:
+      epochs: 1
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  - run_id: adanpc_tau0.25_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: adanpc
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        tau_max: 0.25
+        micro_steps: 4
+    training:
+      epochs: 1
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
