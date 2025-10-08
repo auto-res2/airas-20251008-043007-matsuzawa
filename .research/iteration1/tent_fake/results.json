@@ -1,25 +1,25 @@
 {
   "run_id": "tent_fake",
-  "final_train_loss": 2.41478999968498,
-  "final_train_acc": 0.1310483870967742,
-  "final_val_loss": 2.4066640663146974,
-  "final_val_acc": 0.13,
-  "best_val_acc": 0.13,
+  "final_train_loss": 2.400453629032258,
+  "final_train_acc": 0.11088709677419355,
+  "final_val_loss": 2.3655844497680665,
+  "final_val_acc": 0.11,
+  "best_val_acc": 0.11,
   "epochs": 2,
   "epoch_metrics": [
     {
       "epoch": 1,
-      "train_loss": 2.4587894562752015,
-      "train_acc": 0.11189516129032258,
-      "val_loss": 2.4420634365081786,
-      "val_acc": 0.115
+      "train_loss": 2.433233445690524,
+      "train_acc": 0.10887096774193548,
+      "val_loss": 2.394460611343384,
+      "val_acc": 0.09
     },
     {
       "epoch": 2,
-      "train_loss": 2.41478999968498,
-      "train_acc": 0.1310483870967742,
-      "val_loss": 2.4066640663146974,
-      "val_acc": 0.13
+      "train_loss": 2.400453629032258,
+      "train_acc": 0.11088709677419355,
+      "val_loss": 2.3655844497680665,
+      "val_acc": 0.11
     }
   ]
 }

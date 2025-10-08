@@ -827,3 +827,136 @@
 [proxtta_fake] Train Epoch 2/2:  90%|█████████ | 28/31 [00:00<00:00, 57.24it/s, loss=2.41, acc=0.117]
 [proxtta_fake] Train Epoch 2/2:  90%|█████████ | 28/31 [00:00<00:00, 57.24it/s, loss=2.41, acc=0.113]
                                                                                                      
+/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=None`.
+  warnings.warn(msg)
+/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:69: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler(enabled=cfg.get("mixed_precision", True) and device.type == "cuda")
+
+[source_fake] Train Epoch 1/2:   0%|          | 0/31 [00:00<?, ?it/s]/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:88: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast(enabled=scaler.is_enabled()):
+
+[source_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:07<03:51,  7.71s/it]
+[source_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:07<03:51,  7.71s/it, loss=2.4, acc=0.0729]
+[source_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:07<03:51,  7.71s/it, loss=2.39, acc=0.099]
+[source_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:07<03:51,  7.71s/it, loss=2.42, acc=0.115]
+[source_fake] Train Epoch 1/2:  29%|██▉       | 9/31 [00:07<00:13,  1.58it/s, loss=2.42, acc=0.115]
+[source_fake] Train Epoch 1/2:  29%|██▉       | 9/31 [00:07<00:13,  1.58it/s, loss=2.43, acc=0.117]
+[source_fake] Train Epoch 1/2:  29%|██▉       | 9/31 [00:07<00:13,  1.58it/s, loss=2.46, acc=0.119]
+[source_fake] Train Epoch 1/2:  52%|█████▏    | 16/31 [00:07<00:04,  3.30it/s, loss=2.46, acc=0.119]
+[source_fake] Train Epoch 1/2:  52%|█████▏    | 16/31 [00:07<00:04,  3.30it/s, loss=2.47, acc=0.118]
+[source_fake] Train Epoch 1/2:  52%|█████▏    | 16/31 [00:08<00:04,  3.30it/s, loss=2.5, acc=0.112] 
+[source_fake] Train Epoch 1/2:  71%|███████   | 22/31 [00:08<00:01,  5.24it/s, loss=2.5, acc=0.112]
+[source_fake] Train Epoch 1/2:  71%|███████   | 22/31 [00:08<00:01,  5.24it/s, loss=2.49, acc=0.115]
+[source_fake] Train Epoch 1/2:  71%|███████   | 22/31 [00:08<00:01,  5.24it/s, loss=2.5, acc=0.116] 
+[source_fake] Train Epoch 1/2:  90%|█████████ | 28/31 [00:08<00:00,  7.70it/s, loss=2.5, acc=0.116]
+[source_fake] Train Epoch 1/2:  90%|█████████ | 28/31 [00:08<00:00,  7.70it/s, loss=2.5, acc=0.11] 
+                                                                                                  
+
+[source_fake] Train Epoch 2/2:   0%|          | 0/31 [00:00<?, ?it/s]
+[source_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.04it/s]
+[source_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.04it/s, loss=2.05, acc=0.375]
+[source_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.04it/s, loss=1.96, acc=0.354]
+[source_fake] Train Epoch 2/2:  19%|█▉        | 6/31 [00:00<00:00, 30.39it/s, loss=1.96, acc=0.354]
+[source_fake] Train Epoch 2/2:  19%|█▉        | 6/31 [00:00<00:00, 30.39it/s, loss=2.08, acc=0.312]
+[source_fake] Train Epoch 2/2:  35%|███▌      | 11/31 [00:00<00:00, 36.92it/s, loss=2.08, acc=0.312]
+[source_fake] Train Epoch 2/2:  35%|███▌      | 11/31 [00:00<00:00, 36.92it/s, loss=2.05, acc=0.315]
+[source_fake] Train Epoch 2/2:  35%|███▌      | 11/31 [00:00<00:00, 36.92it/s, loss=2.1, acc=0.304] 
+[source_fake] Train Epoch 2/2:  52%|█████▏    | 16/31 [00:00<00:00, 38.98it/s, loss=2.1, acc=0.304]
+[source_fake] Train Epoch 2/2:  52%|█████▏    | 16/31 [00:00<00:00, 38.98it/s, loss=2.16, acc=0.281]
+[source_fake] Train Epoch 2/2:  52%|█████▏    | 16/31 [00:00<00:00, 38.98it/s, loss=2.18, acc=0.281]
+[source_fake] Train Epoch 2/2:  68%|██████▊   | 21/31 [00:00<00:00, 40.56it/s, loss=2.18, acc=0.281]
+[source_fake] Train Epoch 2/2:  68%|██████▊   | 21/31 [00:00<00:00, 40.56it/s, loss=2.21, acc=0.272]
+[source_fake] Train Epoch 2/2:  84%|████████▍ | 26/31 [00:00<00:00, 41.53it/s, loss=2.21, acc=0.272]
+[source_fake] Train Epoch 2/2:  84%|████████▍ | 26/31 [00:00<00:00, 41.53it/s, loss=2.24, acc=0.263]
+[source_fake] Train Epoch 2/2:  84%|████████▍ | 26/31 [00:00<00:00, 41.53it/s, loss=2.28, acc=0.254]
+[source_fake] Train Epoch 2/2: 100%|██████████| 31/31 [00:00<00:00, 42.51it/s, loss=2.28, acc=0.254]
+                                                                                                    
+/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=None`.
+  warnings.warn(msg)
+/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:69: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler(enabled=cfg.get("mixed_precision", True) and device.type == "cuda")
+
+[tent_fake] Train Epoch 1/2:   0%|          | 0/31 [00:00<?, ?it/s]/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:88: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast(enabled=scaler.is_enabled()):
+
+[tent_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:00<00:20,  1.50it/s]
+[tent_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:00<00:20,  1.50it/s, loss=2.38, acc=0.135]
+[tent_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:00<00:20,  1.50it/s, loss=2.4, acc=0.125] 
+[tent_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:00<00:20,  1.50it/s, loss=2.41, acc=0.115]
+[tent_fake] Train Epoch 1/2:  35%|███▌      | 11/31 [00:00<00:01, 18.44it/s, loss=2.41, acc=0.115]
+[tent_fake] Train Epoch 1/2:  35%|███▌      | 11/31 [00:00<00:01, 18.44it/s, loss=2.41, acc=0.109]
+[tent_fake] Train Epoch 1/2:  35%|███▌      | 11/31 [00:00<00:01, 18.44it/s, loss=2.41, acc=0.115]
+[tent_fake] Train Epoch 1/2:  35%|███▌      | 11/31 [00:00<00:01, 18.44it/s, loss=2.43, acc=0.116]
+[tent_fake] Train Epoch 1/2:  58%|█████▊    | 18/31 [00:00<00:00, 28.40it/s, loss=2.43, acc=0.116]
+[tent_fake] Train Epoch 1/2:  58%|█████▊    | 18/31 [00:00<00:00, 28.40it/s, loss=2.45, acc=0.113]
+[tent_fake] Train Epoch 1/2:  58%|█████▊    | 18/31 [00:00<00:00, 28.40it/s, loss=2.44, acc=0.111]
+[tent_fake] Train Epoch 1/2:  77%|███████▋  | 24/31 [00:00<00:00, 35.06it/s, loss=2.44, acc=0.111]
+[tent_fake] Train Epoch 1/2:  77%|███████▋  | 24/31 [00:01<00:00, 35.06it/s, loss=2.44, acc=0.111]
+[tent_fake] Train Epoch 1/2:  77%|███████▋  | 24/31 [00:01<00:00, 35.06it/s, loss=2.43, acc=0.113]
+[tent_fake] Train Epoch 1/2:  97%|█████████▋| 30/31 [00:01<00:00, 40.32it/s, loss=2.43, acc=0.113]
+                                                                                                  
+
+[tent_fake] Train Epoch 2/2:   0%|          | 0/31 [00:00<?, ?it/s]
+[tent_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.24it/s]
+[tent_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.24it/s, loss=2.43, acc=0.135]
+[tent_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.24it/s, loss=2.41, acc=0.12] 
+[tent_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.24it/s, loss=2.4, acc=0.125]
+[tent_fake] Train Epoch 2/2:  32%|███▏      | 10/31 [00:00<00:00, 50.59it/s, loss=2.4, acc=0.125]
+[tent_fake] Train Epoch 2/2:  32%|███▏      | 10/31 [00:00<00:00, 50.59it/s, loss=2.4, acc=0.115]
+[tent_fake] Train Epoch 2/2:  32%|███▏      | 10/31 [00:00<00:00, 50.59it/s, loss=2.39, acc=0.108]
+[tent_fake] Train Epoch 2/2:  55%|█████▍    | 17/31 [00:00<00:00, 55.47it/s, loss=2.39, acc=0.108]
+[tent_fake] Train Epoch 2/2:  55%|█████▍    | 17/31 [00:00<00:00, 55.47it/s, loss=2.4, acc=0.116] 
+[tent_fake] Train Epoch 2/2:  55%|█████▍    | 17/31 [00:00<00:00, 55.47it/s, loss=2.41, acc=0.11]
+[tent_fake] Train Epoch 2/2:  74%|███████▍  | 23/31 [00:00<00:00, 55.74it/s, loss=2.41, acc=0.11]
+[tent_fake] Train Epoch 2/2:  74%|███████▍  | 23/31 [00:00<00:00, 55.74it/s, loss=2.4, acc=0.108]
+[tent_fake] Train Epoch 2/2:  74%|███████▍  | 23/31 [00:00<00:00, 55.74it/s, loss=2.4, acc=0.11] 
+[tent_fake] Train Epoch 2/2:  94%|█████████▎| 29/31 [00:00<00:00, 56.14it/s, loss=2.4, acc=0.11]
+[tent_fake] Train Epoch 2/2:  94%|█████████▎| 29/31 [00:00<00:00, 56.14it/s, loss=2.4, acc=0.114]
+                                                                                                 
+/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/.venv/lib/python3.11/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=None`.
+  warnings.warn(msg)
+/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:69: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler(enabled=cfg.get("mixed_precision", True) and device.type == "cuda")
+
+[proxtta_fake] Train Epoch 1/2:   0%|          | 0/31 [00:00<?, ?it/s]/home/toma/pt80-1-a-25/_work/airas-20251008-043007-matsuzawa/airas-20251008-043007-matsuzawa/src/train.py:88: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast(enabled=scaler.is_enabled()):
+
+[proxtta_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:00<00:19,  1.52it/s]
+[proxtta_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:00<00:19,  1.52it/s, loss=2.51, acc=0.0729]
+[proxtta_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:00<00:19,  1.52it/s, loss=2.5, acc=0.0625] 
+[proxtta_fake] Train Epoch 1/2:   3%|▎         | 1/31 [00:00<00:19,  1.52it/s, loss=2.46, acc=0.0868]
+[proxtta_fake] Train Epoch 1/2:  35%|███▌      | 11/31 [00:00<00:01, 18.91it/s, loss=2.46, acc=0.0868]
+[proxtta_fake] Train Epoch 1/2:  35%|███▌      | 11/31 [00:00<00:01, 18.91it/s, loss=2.46, acc=0.0833]
+[proxtta_fake] Train Epoch 1/2:  35%|███▌      | 11/31 [00:00<00:01, 18.91it/s, loss=2.46, acc=0.0938]
+[proxtta_fake] Train Epoch 1/2:  35%|███▌      | 11/31 [00:00<00:01, 18.91it/s, loss=2.46, acc=0.0903]
+[proxtta_fake] Train Epoch 1/2:  58%|█████▊    | 18/31 [00:00<00:00, 29.10it/s, loss=2.46, acc=0.0903]
+[proxtta_fake] Train Epoch 1/2:  58%|█████▊    | 18/31 [00:00<00:00, 29.10it/s, loss=2.46, acc=0.0997]
+[proxtta_fake] Train Epoch 1/2:  58%|█████▊    | 18/31 [00:00<00:00, 29.10it/s, loss=2.46, acc=0.103] 
+[proxtta_fake] Train Epoch 1/2:  81%|████████  | 25/31 [00:00<00:00, 37.25it/s, loss=2.46, acc=0.103]
+[proxtta_fake] Train Epoch 1/2:  81%|████████  | 25/31 [00:01<00:00, 37.25it/s, loss=2.47, acc=0.0995]
+[proxtta_fake] Train Epoch 1/2:  81%|████████  | 25/31 [00:01<00:00, 37.25it/s, loss=2.47, acc=0.1]   
+                                                                                                   
+
+[proxtta_fake] Train Epoch 2/2:   0%|          | 0/31 [00:00<?, ?it/s]
+[proxtta_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.92it/s]
+[proxtta_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.92it/s, loss=2.44, acc=0.104]
+[proxtta_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.92it/s, loss=2.41, acc=0.12] 
+[proxtta_fake] Train Epoch 2/2:   3%|▎         | 1/31 [00:00<00:03,  9.92it/s, loss=2.43, acc=0.108]
+[proxtta_fake] Train Epoch 2/2:  29%|██▉       | 9/31 [00:00<00:00, 49.57it/s, loss=2.43, acc=0.108]
+[proxtta_fake] Train Epoch 2/2:  29%|██▉       | 9/31 [00:00<00:00, 49.57it/s, loss=2.43, acc=0.107]
+[proxtta_fake] Train Epoch 2/2:  29%|██▉       | 9/31 [00:00<00:00, 49.57it/s, loss=2.43, acc=0.106]
+[proxtta_fake] Train Epoch 2/2:  55%|█████▍    | 17/31 [00:00<00:00, 60.28it/s, loss=2.43, acc=0.106]
+[proxtta_fake] Train Epoch 2/2:  55%|█████▍    | 17/31 [00:00<00:00, 60.28it/s, loss=2.43, acc=0.101]
+[proxtta_fake] Train Epoch 2/2:  55%|█████▍    | 17/31 [00:00<00:00, 60.28it/s, loss=2.43, acc=0.0997]
+[proxtta_fake] Train Epoch 2/2:  55%|█████▍    | 17/31 [00:00<00:00, 60.28it/s, loss=2.42, acc=0.104] 
+[proxtta_fake] Train Epoch 2/2:  77%|███████▋  | 24/31 [00:00<00:00, 62.16it/s, loss=2.42, acc=0.104]
+[proxtta_fake] Train Epoch 2/2:  77%|███████▋  | 24/31 [00:00<00:00, 62.16it/s, loss=2.43, acc=0.109]
+[proxtta_fake] Train Epoch 2/2:  77%|███████▋  | 24/31 [00:00<00:00, 62.16it/s, loss=2.43, acc=0.113]
+[proxtta_fake] Train Epoch 2/2: 100%|██████████| 31/31 [00:00<00:00, 63.59it/s, loss=2.43, acc=0.113]
+                                                                                                     
