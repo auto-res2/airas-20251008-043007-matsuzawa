@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+Active inference operates on the intuition of prioritizing labels for data points where the machine learning model is uncertain and relying on model predictions where it is confident. The core mechanism is based on Augmented Inverse Propensity Weighting (AIPW) estimators for mean estimation and a general M-estimation framework for other targets. A key component is the sampling rule, π(x), which determines the probability of labeling an instance x. This rule is derived from a measure of model uncertainty, u(x). For regression, u(x) is trained to predict the magnitude of the model error, |f(X)-Y|, while for classification (e.g., binary), it's based on predictive probabilities (e.g., 2 * min{p(x), 1-p(x)}). The sampling rule is calibrated to meet a given budget `nb` by scaling `π(x) = u(x) * nb / (n * E[u(X)])`. In the batch setting, a pre-trained model and fixed sampling rule are used. In the sequential setting, the model and sampling rule are iteratively updated as new labels are collected, respecting a martingale structure for tractable inference. Practical sampling rules stabilize the `u(x)`-based rule by mixing it with a uniform sampling rule (`πunif = nb/n`) using a parameter `τ` (e.g., `π(τ)(x) = (1-τ)π(x) + τπunif(x)`) to prevent instability from near-zero uncertainty estimates.
+
+# GitHub URLs List
+['https://github.com/tijana-zrnic/active-inference']
+Output:
+{
+    "index": 0
+}
