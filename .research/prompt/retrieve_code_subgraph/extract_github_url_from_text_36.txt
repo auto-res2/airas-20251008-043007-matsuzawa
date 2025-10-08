@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+The methodology frames the choice of integration points (β, a d-dimensional vector) for the TVO as a time-varying Gaussian process (GP) bandit optimization problem. A time-varying reward function is defined as the difference in TVO log evidence estimates between training windows, which is equivalent to maximizing the final log evidence. A time-varying, permutation-invariant GP model is constructed by combining spatial and temporal covariance functions. Specifically, k(x,x') = kβ(β,β') × kT(t,t'), where kT is a temporal covariance function and kβ uses a projection operator Φ to ensure ordering constraints (0 < β1 < ... < βd-1 < 1) by sorting the β vector. At each round, the algorithm selects the next integration schedule βt by maximizing an acquisition function, a linear combination of the GP posterior mean and variance (GP-UCB variant), balancing exploration and exploitation. The GP model is then updated with the observed reward.
+
+# GitHub URLs List
+['https://github.com/ntienvu/tvo_gp_bandit']
+Output:
+{
+    "index": 0
+}
