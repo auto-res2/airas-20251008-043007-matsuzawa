@@ -20,7 +20,7 @@ from tqdm import tqdm
 import yaml
 
 from .preprocess import get_dataloaders
-from .model import get_model
+from .model import get_model, TentAdaptor, AdaNPCAdaptor
 
 
 # ------------------------------- helpers ------------------------------------ #
@@ -58,13 +58,18 @@ def run(cfg: Dict[str, Any], results_dir: str):
     model = get_model(cfg, num_classes=num_classes).to(device)
     criterion = nn.CrossEntropyLoss().to(device)
 
-    optim_cfg = cfg.get("optimizer", {"name": "SGD", "lr": 0.01, "momentum": 0.9})
-    if optim_cfg["name"].lower() == "sgd":
-        optimizer = SGD(model.parameters(), lr=optim_cfg["lr"], momentum=optim_cfg.get("momentum", 0))
-    elif optim_cfg["name"].lower() == "adamw":
-        optimizer = AdamW(model.parameters(), lr=optim_cfg["lr"], weight_decay=optim_cfg.get("weight_decay", 1e-2))
+    is_tta_model = isinstance(model, (TentAdaptor, AdaNPCAdaptor))
+    
+    if not is_tta_model:
+        optim_cfg = cfg.get("optimizer", {"name": "SGD", "lr": 0.01, "momentum": 0.9})
+        if optim_cfg["name"].lower() == "sgd":
+            optimizer = SGD(model.parameters(), lr=optim_cfg["lr"], momentum=optim_cfg.get("momentum", 0))
+        elif optim_cfg["name"].lower() == "adamw":
+            optimizer = AdamW(model.parameters(), lr=optim_cfg["lr"], weight_decay=optim_cfg.get("weight_decay", 1e-2))
+        else:
+            raise ValueError(f"Unsupported optimizer: {optim_cfg['name']}")
     else:
-        raise ValueError(f"Unsupported optimizer: {optim_cfg['name']}")
+        optimizer = None
 
     scaler = GradScaler(enabled=cfg.get("mixed_precision", True) and device.type == "cuda")
 
@@ -77,20 +82,26 @@ def run(cfg: Dict[str, Any], results_dir: str):
     epoch_metrics = []
     best_val_acc = -1
     best_ckpt_path = os.path.join(results_dir, run_id, "model_best.pth")
-
+    
     for epoch in range(epochs):
         model.train()
         running_loss, running_acc, n_samples = 0.0, 0.0, 0
         pbar = tqdm(train_loader, desc=f"[{run_id}] Train Epoch {epoch+1}/{epochs}", leave=False)
         for i, (x, y) in enumerate(pbar):
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
-            optimizer.zero_grad(set_to_none=True)
-            with autocast(enabled=scaler.is_enabled()):
-                logits = model(x)
-                loss = criterion(logits, y)
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+            
+            if is_tta_model:
+                with autocast(enabled=scaler.is_enabled()):
+                    logits = model(x)
+                    loss = criterion(logits, y)
+            else:
+                optimizer.zero_grad(set_to_none=True)
+                with autocast(enabled=scaler.is_enabled()):
+                    logits = model(x)
+                    loss = criterion(logits, y)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
 
             batch_acc = accuracy(logits.detach(), y)
             batch_size = y.size(0)

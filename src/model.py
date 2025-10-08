@@ -93,23 +93,26 @@ class TentAdaptor(nn.Module):
         self.timer_ema: float | None = None
 
     def forward(self, x):
-        start = time.time()
-        self.base_model.train()  # keep stats updating
-        logits = self.base_model(x)
-        loss = softmax_entropy(logits).mean()
-        self.optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        self.optimizer.step()
+        if torch.is_grad_enabled():
+            start = time.time()
+            self.base_model.train()  # keep stats updating
+            logits = self.base_model(x)
+            loss = softmax_entropy(logits).mean()
+            self.optimizer.zero_grad(set_to_none=True)
+            loss.backward()
+            self.optimizer.step()
 
-        # micro-step budget control (simply halves LR if over budget)
-        if self.tau_max is not None:
-            elapsed = time.time() - start
-            self.timer_ema = 0.8 * (self.timer_ema or elapsed) + 0.2 * elapsed
-            if self.timer_ema > self.tau_max:
-                for g in self.optimizer.param_groups:
-                    g["lr"] *= 0.5
-        # return *post-update* predictions (detached to avoid autograd above caller)
-        with torch.no_grad():
+            # micro-step budget control (simply halves LR if over budget)
+            if self.tau_max is not None:
+                elapsed = time.time() - start
+                self.timer_ema = 0.8 * (self.timer_ema or elapsed) + 0.2 * elapsed
+                if self.timer_ema > self.tau_max:
+                    for g in self.optimizer.param_groups:
+                        g["lr"] *= 0.5
+            # return *post-update* predictions (detached to avoid autograd above caller)
+            with torch.no_grad():
+                return self.base_model(x)
+        else:
             return self.base_model(x)
 
 
@@ -170,21 +173,24 @@ class AdaNPCAdaptor(nn.Module):
         return logits  # return pre-update prediction for possible monitoring
 
     def forward(self, x):
-        start = time.time()
-        self.base_model.train()  # keep norm layers in train mode for stats
-        with torch.enable_grad():
-            _ = self._adanpc_update(x)
-        # compute predictions *after* the potential parameter update
-        with torch.no_grad():
-            y_after = self.base_model(x)
+        if torch.is_grad_enabled():
+            start = time.time()
+            self.base_model.train()  # keep norm layers in train mode for stats
+            with torch.enable_grad():
+                _ = self._adanpc_update(x)
+            # compute predictions *after* the potential parameter update
+            with torch.no_grad():
+                y_after = self.base_model(x)
 
-        # latency-aware micro-step back-off
-        if self.tau_max is not None:
-            elapsed = time.time() - start
-            self.timer_ema = 0.8 * (self.timer_ema or elapsed) + 0.2 * elapsed
-            if self.timer_ema > self.tau_max and self.k > 1:
-                self.k //= 2  # halve micro-steps
-        return y_after
+            # latency-aware micro-step back-off
+            if self.tau_max is not None:
+                elapsed = time.time() - start
+                self.timer_ema = 0.8 * (self.timer_ema or elapsed) + 0.2 * elapsed
+                if self.timer_ema > self.tau_max and self.k > 1:
+                    self.k //= 2  # halve micro-steps
+            return y_after
+        else:
+            return self.base_model(x)
 
 
 # ---------------------------------------------------------------------------

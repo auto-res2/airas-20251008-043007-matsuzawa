@@ -1,0 +1,18 @@
+{
+  "run_id": "tent_tau0.25_fake",
+  "final_train_loss": 2.541901126984627,
+  "final_train_acc": 0.09576612903225806,
+  "final_val_loss": 2.560036163330078,
+  "final_val_acc": 0.09,
+  "best_val_acc": 0.09,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 2.541901126984627,
+      "train_acc": 0.09576612903225806,
+      "val_loss": 2.560036163330078,
+      "val_acc": 0.09
+    }
+  ]
+}

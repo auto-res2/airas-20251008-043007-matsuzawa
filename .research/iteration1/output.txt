@@ -25,3 +25,55 @@
 {"run_id": "source_fake", "final_train_loss": 2.6127471923828125, "final_train_acc": 0.11895161290322581, "final_val_loss": 2.9906107711791994, "final_val_acc": 0.125, "best_val_acc": 0.125, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.6127471923828125, "train_acc": 0.11895161290322581, "val_loss": 2.9906107711791994, "val_acc": 0.125}]}
 
 ===== Launching run: tent_tau0.25_fake =====
+=== [PHASE 1/2] Smoke test start Wed Oct  8 12:10:06 PM UTC 2025 ===
+=== [PHASE 1/2] Smoke test start Wed Oct  8 12:10:11 PM UTC 2025 ===
+===================== Experiment description =====================
+{
+  "goal": "End-to-end smoke test covering ALL run variations with minimal data.",
+  "dataset": "Torchvision FakeData (1 k train / 0.2 k val)",
+  "models": "ResNet-18 baseline, Tent and AdaNPC"
+}
+==================================================================
+
+===== Launching run: source_fake =====
+{"run_id": "source_fake", "final_train_loss": 2.5568375126008065, "final_train_acc": 0.10483870967741936, "final_val_loss": 3.2871739196777345, "final_val_acc": 0.115, "best_val_acc": 0.115, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.5568375126008065, "train_acc": 0.10483870967741936, "val_loss": 3.2871739196777345, "val_acc": 0.115}]}
+
+===== Launching run: tent_tau0.25_fake =====
+=== [PHASE 1/2] Smoke test start Wed Oct  8 12:13:18 PM UTC 2025 ===
+===================== Experiment description =====================
+{
+  "goal": "End-to-end smoke test covering ALL run variations with minimal data.",
+  "dataset": "Torchvision FakeData (1 k train / 0.2 k val)",
+  "models": "ResNet-18 baseline, Tent and AdaNPC"
+}
+==================================================================
+
+===== Launching run: source_fake =====
+{"run_id": "source_fake", "final_train_loss": 2.597654773342994, "final_train_acc": 0.08669354838709678, "final_val_loss": 5.109625301361084, "final_val_acc": 0.085, "best_val_acc": 0.085, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.597654773342994, "train_acc": 0.08669354838709678, "val_loss": 5.109625301361084, "val_acc": 0.085}]}
+
+===== Launching run: tent_tau0.25_fake =====
+=== [PHASE 1/2] Smoke test start Wed Oct  8 12:14:24 PM UTC 2025 ===
+===================== Experiment description =====================
+{
+  "goal": "End-to-end smoke test covering ALL run variations with minimal data.",
+  "dataset": "Torchvision FakeData (1 k train / 0.2 k val)",
+  "models": "ResNet-18 baseline, Tent and AdaNPC"
+}
+==================================================================
+
+===== Launching run: source_fake =====
+{"run_id": "source_fake", "final_train_loss": 2.496881300403226, "final_train_acc": 0.0846774193548387, "final_val_loss": 2.863629837036133, "final_val_acc": 0.14, "best_val_acc": 0.14, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.496881300403226, "train_acc": 0.0846774193548387, "val_loss": 2.863629837036133, "val_acc": 0.14}]}
+
+===== Launching run: tent_tau0.25_fake =====
+{"run_id": "tent_tau0.25_fake", "final_train_loss": 2.541901126984627, "final_train_acc": 0.09576612903225806, "final_val_loss": 2.560036163330078, "final_val_acc": 0.09, "best_val_acc": 0.09, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.541901126984627, "train_acc": 0.09576612903225806, "val_loss": 2.560036163330078, "val_acc": 0.09}]}
+
+===== Launching run: adanpc_tau1.0_fake =====
+{"run_id": "adanpc_tau1.0_fake", "final_train_loss": 2.458248999810988, "final_train_acc": 0.11088709677419355, "final_val_loss": 2.4375399208068846, "final_val_acc": 0.12, "best_val_acc": 0.12, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.458248999810988, "train_acc": 0.11088709677419355, "val_loss": 2.4375399208068846, "val_acc": 0.12}]}
+
+===== Launching run: adanpc_tau0.5_fake =====
+{"run_id": "adanpc_tau0.5_fake", "final_train_loss": 2.411342497794859, "final_train_acc": 0.10383064516129033, "final_val_loss": 2.375411615371704, "final_val_acc": 0.11, "best_val_acc": 0.11, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.411342497794859, "train_acc": 0.10383064516129033, "val_loss": 2.375411615371704, "val_acc": 0.11}]}
+
+===== Launching run: adanpc_tau0.25_fake =====
+{"run_id": "adanpc_tau0.25_fake", "final_train_loss": 2.5251051379788305, "final_train_acc": 0.08870967741935484, "final_val_loss": 2.548343563079834, "final_val_acc": 0.075, "best_val_acc": 0.075, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.5251051379788305, "train_acc": 0.08870967741935484, "val_loss": 2.548343563079834, "val_acc": 0.075}]}
+
+===== Running evaluation across all variations =====

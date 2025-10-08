@@ -1,0 +1,18 @@
+{
+  "run_id": "adanpc_tau1.0_fake",
+  "final_train_loss": 2.458248999810988,
+  "final_train_acc": 0.11088709677419355,
+  "final_val_loss": 2.4375399208068846,
+  "final_val_acc": 0.12,
+  "best_val_acc": 0.12,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 2.458248999810988,
+      "train_acc": 0.11088709677419355,
+      "val_loss": 2.4375399208068846,
+      "val_acc": 0.12
+    }
+  ]
+}
