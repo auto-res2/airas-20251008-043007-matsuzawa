@@ -99,11 +99,25 @@ def _load_imagenetc(cfg: Dict[str, Any]):
     if load_dataset is None:
         raise RuntimeError("datasets library not available – cannot load ImageNet-C")
 
-    # We use the lighter *mini* ImageNet-C available on the HF hub.
-    ds_name = "niuniandaji/mini-imagenet-c"
-    ds_dict = load_dataset(ds_name)
+    # Try alternative ImageNet-C datasets
+    dataset_candidates = [
+        "yangzhou321/ImageNet1k_Corrupt",
+        "dingw/corrupt_ood_imagenet1k",
+        "timm/mini-imagenet",
+    ]
+    
+    ds_dict = None
+    for ds_name in dataset_candidates:
+        try:
+            ds_dict = load_dataset(ds_name)
+            break
+        except Exception:
+            continue
+    
+    if ds_dict is None:
+        raise RuntimeError("Failed to load any ImageNet-C dataset from HuggingFace")
 
-    # The mini-imagenet-c provides train/validation/test splits; if not, we
+    # The dataset provides train/validation/test splits; if not, we
     # create a random split.
     if set(ds_dict.keys()) >= {"train", "validation"}:
         hf_train = ds_dict["train"]

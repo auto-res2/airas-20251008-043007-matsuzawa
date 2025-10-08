@@ -1,0 +1,16 @@
+dataset:
+  img_size: 224
+  name: IMAGENETC
+  num_workers: 8
+model:
+  name: vit_base_patch16_224
+  pretrained: true
+  tta: none
+optimizer:
+  lr: 0.001
+  momentum: 0.9
+  name: SGD
+run_id: source
+training:
+  batch_size: 32
+  epochs: 1
