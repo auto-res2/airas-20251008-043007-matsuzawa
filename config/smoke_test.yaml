@@ -1,0 +1,115 @@
+description:
+  goal: Quick smoke test covering all TTA wrappers (Source, Tent, ProxTTA, EATA, AdaNPC).
+  dataset: Torchvision FakeData (1000 train / 200 val)
+
+author: "AdaNPC Core"
+experiments:
+  # --------------------------------------------------------------------- #
+  - run_id: source_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: none
+    training:
+      epochs: 2
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  # --------------------------------------------------------------------- #
+  - run_id: tent_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: tent
+      tent:
+        lr: 0.001
+        momentum: 0.9
+    training:
+      epochs: 2
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  # --------------------------------------------------------------------- #
+  - run_id: proxtta_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: proxtta
+      proxtta:
+        lr: 0.001
+        momentum: 0.9
+        lamb: 0.001
+    training:
+      epochs: 2
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  # --------------------------------------------------------------------- #
+  - run_id: eata_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: eata
+      eata:
+        lr: 0.001
+        momentum: 0.9
+        thresh: 0.8
+    training:
+      epochs: 2
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  # --------------------------------------------------------------------- #
+  - run_id: adanpc_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: adanpc
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        micro_steps: 4
+    training:
+      epochs: 2
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9

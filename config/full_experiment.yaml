@@ -1,0 +1,317 @@
+description:
+  experiment_id: exp-1-main-performance
+  goal: Compare AdaNPC with Source, Tent, ProxTTA and EATA on ImageNet-C & CIFAR10-C.
+  note: Each run trains a small supervised epoch so the pipeline (data-load →
+        checkpoint → evaluation) is exercised end-to-end. Real TTA evaluation
+        happens during validation where the wrappers perform adaptation.
+
+author: "AdaNPC Core"
+experiments:
+  # ================= ImageNet-C – ResNet-50 (BN) ======================= #
+  - run_id: imagenet_resnet50_source
+    dataset:
+      name: imagenet_c
+      img_size: 224
+      num_workers: 8
+    model:
+      name: resnet50_bn
+      pretrained: true
+      tta: none
+    training:
+      epochs: 1
+      batch_size: 64
+    optimizer:
+      name: SGD
+      lr: 0.001
+      momentum: 0.9
+
+  - run_id: imagenet_resnet50_tent
+    dataset:
+      name: imagenet_c
+      img_size: 224
+      num_workers: 8
+    model:
+      name: resnet50_bn
+      pretrained: true
+      tta: tent
+      tent:
+        lr: 0.001
+        momentum: 0.9
+    training:
+      epochs: 1
+      batch_size: 64
+    optimizer:
+      name: SGD
+      lr: 0.001
+      momentum: 0.9
+
+  - run_id: imagenet_resnet50_proxtta
+    dataset:
+      name: imagenet_c
+      img_size: 224
+      num_workers: 8
+    model:
+      name: resnet50_bn
+      pretrained: true
+      tta: proxtta
+      proxtta:
+        lr: 0.001
+        momentum: 0.9
+        lamb: 0.001
+    training:
+      epochs: 1
+      batch_size: 64
+    optimizer:
+      name: SGD
+      lr: 0.001
+      momentum: 0.9
+
+  - run_id: imagenet_resnet50_eata
+    dataset:
+      name: imagenet_c
+      img_size: 224
+      num_workers: 8
+    model:
+      name: resnet50_bn
+      pretrained: true
+      tta: eata
+      eata:
+        lr: 0.001
+        momentum: 0.9
+        thresh: 0.8
+    training:
+      epochs: 1
+      batch_size: 64
+    optimizer:
+      name: SGD
+      lr: 0.001
+      momentum: 0.9
+
+  - run_id: imagenet_resnet50_adanpc
+    dataset:
+      name: imagenet_c
+      img_size: 224
+      num_workers: 8
+    model:
+      name: resnet50_bn
+      pretrained: true
+      tta: adanpc
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        tau_max: null
+        micro_steps: 4
+    training:
+      epochs: 1
+      batch_size: 64
+    optimizer:
+      name: SGD
+      lr: 0.001
+      momentum: 0.9
+
+  # ================= ImageNet-C – ViT-B/16 (LN) ======================== #
+  - run_id: imagenet_vitb16_source
+    dataset:
+      name: imagenet_c
+      img_size: 224
+      num_workers: 8
+    model:
+      name: vit_b16_ln
+      pretrained: true
+      tta: none
+    training:
+      epochs: 1
+      batch_size: 64
+    optimizer:
+      name: SGD
+      lr: 0.001
+      momentum: 0.9
+
+  - run_id: imagenet_vitb16_tent
+    dataset:
+      name: imagenet_c
+      img_size: 224
+      num_workers: 8
+    model:
+      name: vit_b16_ln
+      pretrained: true
+      tta: tent
+      tent:
+        lr: 0.001
+        momentum: 0.9
+    training:
+      epochs: 1
+      batch_size: 64
+    optimizer:
+      name: SGD
+      lr: 0.001
+      momentum: 0.9
+
+  - run_id: imagenet_vitb16_proxtta
+    dataset:
+      name: imagenet_c
+      img_size: 224
+      num_workers: 8
+    model:
+      name: vit_b16_ln
+      pretrained: true
+      tta: proxtta
+      proxtta:
+        lr: 0.001
+        momentum: 0.9
+        lamb: 0.001
+    training:
+      epochs: 1
+      batch_size: 64
+    optimizer:
+      name: SGD
+      lr: 0.001
+      momentum: 0.9
+
+  - run_id: imagenet_vitb16_eata
+    dataset:
+      name: imagenet_c
+      img_size: 224
+      num_workers: 8
+    model:
+      name: vit_b16_ln
+      pretrained: true
+      tta: eata
+      eata:
+        lr: 0.001
+        momentum: 0.9
+        thresh: 0.8
+    training:
+      epochs: 1
+      batch_size: 64
+    optimizer:
+      name: SGD
+      lr: 0.001
+      momentum: 0.9
+
+  - run_id: imagenet_vitb16_adanpc
+    dataset:
+      name: imagenet_c
+      img_size: 224
+      num_workers: 8
+    model:
+      name: vit_b16_ln
+      pretrained: true
+      tta: adanpc
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        tau_max: null
+        micro_steps: 4
+    training:
+      epochs: 1
+      batch_size: 64
+    optimizer:
+      name: SGD
+      lr: 0.001
+      momentum: 0.9
+
+  # ================= CIFAR10-C – ResNet-18 (GN) ======================== #
+  - run_id: cifar10_resnet18_source
+    dataset:
+      name: cifar10_c
+      img_size: 32
+      num_workers: 4
+    model:
+      name: resnet18_gn
+      pretrained: false
+      tta: none
+    training:
+      epochs: 1
+      batch_size: 128
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  - run_id: cifar10_resnet18_tent
+    dataset:
+      name: cifar10_c
+      img_size: 32
+      num_workers: 4
+    model:
+      name: resnet18_gn
+      pretrained: false
+      tta: tent
+      tent:
+        lr: 0.005
+        momentum: 0.9
+    training:
+      epochs: 1
+      batch_size: 128
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  - run_id: cifar10_resnet18_proxtta
+    dataset:
+      name: cifar10_c
+      img_size: 32
+      num_workers: 4
+    model:
+      name: resnet18_gn
+      pretrained: false
+      tta: proxtta
+      proxtta:
+        lr: 0.005
+        momentum: 0.9
+        lamb: 0.001
+    training:
+      epochs: 1
+      batch_size: 128
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  - run_id: cifar10_resnet18_eata
+    dataset:
+      name: cifar10_c
+      img_size: 32
+      num_workers: 4
+    model:
+      name: resnet18_gn
+      pretrained: false
+      tta: eata
+      eata:
+        lr: 0.005
+        momentum: 0.9
+        thresh: 0.8
+    training:
+      epochs: 1
+      batch_size: 128
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  - run_id: cifar10_resnet18_adanpc
+    dataset:
+      name: cifar10_c
+      img_size: 32
+      num_workers: 4
+    model:
+      name: resnet18_gn
+      pretrained: false
+      tta: adanpc
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        tau_max: null
+        micro_steps: 4
+    training:
+      epochs: 1
+      batch_size: 128
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+# --------------------------------------------------------------------------- #
+# End of full_experiment.yaml
+# --------------------------------------------------------------------------- #
