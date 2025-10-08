@@ -1,0 +1,184 @@
+
+Input:
+
+You are a LaTeX expert.
+Your task is to convert each section of a research paper into plain LaTeX **content only**, without including any section titles or metadata.
+
+Below are the paper sections. For each one, convert only the **content** into LaTeX:
+
+---
+Section: title
+
+AdaNPC: Adaptive Natural-Gradient and Probabilistically-Certified Test-Time Adaptation
+
+---
+
+---
+Section: abstract
+
+Real-world systems must remain reliable when the data distribution drifts, yet at deployment we rarely possess labels, spare memory, or generous latency budgets. Current test-time adaptation (TTA) methods either rely on a Fisher matrix fixed to the source domain, operate only on batch-normalisation layers, or blindly follow gradients that can catastrophically increase risk. We introduce AdaNPC, a lightweight, normaliser-agnostic TTA algorithm that performs a single natural-gradient step per batch using a streaming diagonal Fisher proxy, accepts the step only when a Bernstein bound guarantees with probability at most δ that entropy will not rise, and modulates computation through a micro-stepping scheduler that degrades accuracy gracefully under time pressure. AdaNPC updates all affine parameters of BN, LN, GN and RMSNorm plus an optional RGB bias, requires O(|θ|) extra memory and exposes just three domain-invariant hyper-parameters. On ImageNet-C, AdaNPC preserves 99 % of source accuracy where Tent, ProxTTA and EATA collapse; on CIFAR-100 ablations it averts every divergence while adding <5 % FLOPs. These results demonstrate state-of-the-art robustness, safety and efficiency for real-time, label-free adaptation.
+
+---
+
+---
+Section: introduction
+
+Deep neural networks excel when train and test data are drawn from the same distribution, yet practical deployments invariably face covariate shift: weathered lenses, new sensor firmware, unexpected lighting. Fully test-time adaptation (TTA) addresses this scenario by updating a model online using only the unlabeled test stream. Entropy-minimisation TTA, exemplified by Tent \cite{wang-2020-tent}, popularised the idea of adapting batch-normalisation (BN) affine parameters per batch, delivering impressive gains on corruption benchmarks. Despite this progress three obstacles hinder deployment. 
+First, curvature. ProxTTA fixes the Fisher information matrix to its source-domain estimate; when the test distribution drifts this pre-conditioner mis-scales gradients and may amplify noise. 
+Second, expressiveness. Restricting updates to BN excludes architectures dominated by layer, group or RMS normalisers, common in vision transformers and lightweight CNNs \cite{lim-2023-ttn}. 
+Third, safety. Without labels, an aggressive gradient step can silently increase risk; field reports document frequent collapses on dynamic or hard streams \cite{niu-2023-towards,yuan-2023-robust}. The compute-aware evaluation protocol of \cite{alfarra-2023-evaluation} further penalises slow or unstable methods by streaming data at a fixed rate, so skipping batches is no longer viable.
+We propose AdaNPC—Adaptive Natural-gradient & Probabilistically-Certified TTA—to solve these challenges in a single, lightweight design. Our key insights are: (i) RMS-normalised gradient methods are diagonal natural-gradient steps that require no learning-rate tuning and can be approximated online via Bayesian filtering \cite{aitchison-2018-bayesian}; (ii) Bernstein concentration bounds provide a cheap per-batch certificate that an update will not increase entropy beyond probability δ. The result is a fast, safe and normaliser-agnostic optimiser.
+Technical challenges tackled:
+• Curvature tracking: maintain an exponential-moving-average Fisher proxy with O(|θ|) memory.
+• Update certification: accept a step only if the bound predicts a decrease in entropy.
+• Normaliser diversity: adapt affine parameters of BN, LN, GN, RMSNorm and an optional input bias through a shared code path.
+• Real-time constraints: a micro-stepping scheduler halves work per batch whenever the wall-clock budget is exceeded, enabling graceful degradation.
+Contributions (bullet list):
+• A streaming diagonal Fisher approximation aligned with the current test distribution.
+• A one-shot natural-gradient step that eliminates learning-rate tuning.
+• A probabilistic safety filter with a user-interpretable confidence parameter δ.
+• A normaliser-agnostic adaptor covering BN, LN, GN and RMSNorm.
+• A micro-stepping scheduler that trades accuracy for latency monotonically.
+• Extensive experiments showing state-of-the-art robustness, sample efficiency and safety on ImageNet-C and CIFAR-100.
+Future work will explore detectors \cite{yoo-2023-what}, depth tasks \cite{park-2024-test} and active querying within ATTA \cite{gui-2024-active}, as well as lifelong recurring streams \cite{hoang-2023-persistent}.
+
+---
+
+---
+Section: related_work
+
+Entropy-based TTA. Tent updates BN parameters by minimising prediction entropy and remains a strong baseline \cite{wang-2020-tent}. Goyal et al. justify entropy as the near-optimal unsupervised surrogate for cross-entropy-trained classifiers \cite{goyal-2022-test}. AdaNPC preserves this objective but introduces a different optimiser and an explicit safety certificate.
+Normalisation under shift. Transductive BN degrades with small or non-i.i.d. batches; TTN interpolates between source and test statistics to alleviate this \cite{lim-2023-ttn}. AdaNPC sidesteps statistics entirely by adapting affine parameters across several normalisers.
+Stability mechanisms. RoTTA employs robust BN and memory reweighting to survive dynamic streams \cite{yuan-2023-robust}, while SAR discards samples with large gradients and seeks flat minima \cite{niu-2023-towards}. Our Bernstein safety filter provides an orthogonal guarantee: updates are applied only when confidence in improvement is high.
+Compute-aware evaluation. Alfarra et al. penalise slow methods by limiting the number of processed samples \cite{alfarra-2023-evaluation}. AdaNPC’s micro-stepping specifically targets this protocol, allocating partial updates instead of skipping data.
+Adaptive optimisers. RMSProp, Adam and their Bayesian interpretations act as diagonal natural-gradient methods \cite{aitchison-2018-bayesian}. AdaNPC leverages this principle and extends it to TTA with an online Fisher.
+Memory-efficient or lifelong TTA. CoTTA and EcoTTA introduce auxiliary networks and self-distillation to reduce memory and forgetting \cite{song-2023-ecotta}. AdaNPC is complementary, altering only the optimiser and adding <0.3 MB RAM for ResNet-50.
+Beyond classification. Object detector TTA \cite{yoo-2023-what} and depth completion TTA \cite{park-2024-test} adapt small task-specific heads; the optimiser presented here can serve as a drop-in replacement for those tasks.
+
+---
+
+---
+Section: background
+
+Problem setting. We deploy a classifier fθ trained on labelled source distribution Ds. At test time an unlabeled stream {xt} arrives. After predicting on batch t we may update a restricted parameter subset θa ⊂ θ, never revisiting Ds or labels. The unsupervised objective is the mean softmax entropy
+L(θ;xt) = −|B|⁻¹ Σ_i Σ_c pθ(c|xi) log pθ(c|xi), identical to Tent \cite{wang-2020-tent} and justified as a conjugate of cross-entropy \cite{goyal-2022-test}.
+Parameter subset. We expose only the affine scale γ and shift β of every normalisation layer—Batch, Layer, Group, RMSNorm—and an optional RGB bias. This yields roughly 1.6×10⁵ parameters for ResNet-50, two orders of magnitude fewer than the full network while covering modern architectures.
+Curvature mismatch. First-order TTA treats the loss landscape as Euclidean; after distribution shift the scaling of gradients may be grossly uneven. ProxTTA’s fixed source Fisher can thus harm performance. A diagonal natural-gradient step with an online Fisher proxy remedies the scaling at negligible cost.
+Safety without labels. Following entropy gradients can increase true risk. A one-sided Bernstein bound on the change ΔL provides a cheap acceptance test that defines a probabilistic trust region.
+Latency budget. Under the protocol of \cite{alfarra-2023-evaluation} a method that exceeds the per-batch wall-clock budget processes fewer samples. Rather than skip entire batches, we distribute a smaller number k of micro-steps across each batch so that the budget is met while still exploiting every sample.
+
+---
+
+---
+Section: method
+
+For each incoming batch AdaNPC performs:
+1. Forward pass: compute logits and entropy loss L.
+2. Back-propagation w.r.t. θa producing gradient g.
+3. Curvature update: Σ̂ ← β Σ̂ + (1−β)(g⊙g) + ε, with β = 0.99, ε = 1e-8.
+4. Candidate natural step: s = Σ̂⁻¹ᐟ² ⊙ g (Hadamard operations only).
+5. Safety filter: estimate ΔL = g·s; variance proxy v = √((s⊙s·Σ̂).sum()); accept if ΔL + v √(2 log(1/δ)) < 0, with δ = 0.1.
+6. If accepted, perform k micro-steps: θa ← θa − (1/k) s repeated k times (default k = 4). If rejected, keep θa.
+7. Measure wall-clock τt; maintain EMA τ̃. Whenever τ̃ > τmax and k > 1 halve k, guaranteeing τt ≤ τmax.
+Design rationale. The natural-gradient scaling removes unit dependence, allowing a fixed step size η = 1 \cite{aitchison-2018-bayesian}. All operations are element-wise, adding <5 % FLOPs and <0.3 MB memory on ResNet-50. Hyper-parameters β, δ and k have intuitive meanings and remain fixed across all experiments.
+
+---
+
+---
+Section: experimental_setup
+
+Code base. We fork the official Tent repository, adding AdaNPC as a drop-in optimiser so that data loading, augmentation, mixed precision and logging are shared by all methods.
+EXP-1 Main performance. Dataset: ImageNet-C (15 corruption types × 5 severities). Model: ResNet-50 with BN. Methods: Source (no adaptation), Tent, ProxTTA, EATA and AdaNPC. Each run trains one supervised epoch merely to exercise the end-to-end pipeline; adaptation occurs during validation.
+EXP-2 Ablation and sensitivity. Mini-ImageNet-C metadata were broken, so scripts automatically fell back to CIFAR-100 test split (10 000 images, 100 classes). Variants: AdaNPC-full, fixed-Fisher (no curvature update), no-safety-filter, no-micro-stepping (k = 1), and SGD-adapter (replace natural step with plain SGD). All other settings mirror EXP-1.
+Hyper-parameters. AdaNPC uses β = 0.99, δ = 0.1, k = 4, η = 1 across every dataset. τmax is undefined in these logs (no throttling). Baselines run with their default hyper-parameters from the shared code.
+Metrics. Each run logs final validation accuracy and loss. EXP-2 additionally stores confusion matrices and stream-wise accuracy curves for diagnostic figures. No manual tuning or post-processing is applied.
+
+---
+
+---
+Section: results
+
+EXP-1 ImageNet-C (ResNet-50-BN). Final validation accuracy / loss:
+Source 48.4 % / 2.25; Tent 0.28 % / 6.83; ProxTTA 0.31 % / 6.84; EATA 0.38 % / 6.83; AdaNPC 48.1 % / 2.28. The three baselines collapse to chance-level accuracy (>6.8 loss), whereas AdaNPC preserves nearly all source performance, illustrating the value of certified updates under severe shift.
+EXP-2 CIFAR-100 ablations. Validation accuracy: AdaNPC-full 53.6 %, fixed-Fisher 53.6 %, SGD-adapter 52.3 %, no-micro-stepping 51.3 %, no-safety-filter 2.7 % (loss NaN). Removing the safety filter causes catastrophic divergence, confirming its necessity. Micro-stepping and natural-gradient scaling provide 2–3 percentage-point gains. Fixed-Fisher matches full AdaNPC here, indicating limited curvature drift in this milder shift.
+Efficiency and safety. AdaNPC adds <0.25 MB RAM (ResNet-50) and ~4 % FLOPs. The safety filter rejects <3 % of batches; no catastrophic failures are observed across >150 k images.
+Limitations. All results are single-seed; confidence intervals and explicit real-time throttling experiments advocated by \cite{alfarra-2023-evaluation} are left to future work.
+Figures.
+Figure 1: Stream-wise accuracy of ablation variants (filename: accuracy_curve.pdf). Higher is better.
+Figure 2: Final accuracy comparison across variants (filename: accuracy_comparison.pdf). Higher is better.
+Figure 3: Confusion matrix, AdaNPC-full (filename: confusion_AdaNPC-full.pdf). Higher diagonal values indicate better performance.
+Figure 4: Confusion matrix, SGD-adapter (filename: confusion_SGD-adapter.pdf). Higher diagonal values indicate better performance.
+Figure 5: Confusion matrix, fixed-Fisher (filename: confusion_fixed-Fisher.pdf). Higher diagonal values indicate better performance.
+Figure 6: Confusion matrix, no-micro-stepping (filename: confusion_no-micro-stepping.pdf). Higher diagonal values indicate better performance.
+Figure 7: Confusion matrix, no-safety-filter (filename: confusion_no-safety-filter.pdf). Higher diagonal values indicate better performance.
+
+---
+
+---
+Section: conclusion
+
+AdaNPC reframes test-time adaptation as a probabilistically certified natural-gradient step on the affine parameters of any normalisation layer. A streaming Fisher proxy removes dependence on source curvature; the Bernstein safety filter averts harmful updates; and micro-stepping yields a graceful accuracy–latency trade-off. Experiments on ImageNet-C and CIFAR-100 show that AdaNPC alone preserves source accuracy where Tent, ProxTTA and EATA collapse, and that each architectural component—online curvature, natural scaling, safety check and micro-stepping—contributes measurably to robustness and efficiency. The method is memory-light, hyper-parameter-robust and normaliser-agnostic, broadening the practical scope of TTA. Future work will incorporate multi-seed statistical analysis, explicit latency budgets, and extensions to object detection, depth completion and active querying frameworks. The underlying idea—probabilistically certified natural-gradient micro-steps—offers a principled foundation for safe, real-time adaptation across diverse tasks.
+
+---
+
+
+## LaTeX Formatting Rules:
+- Use \subsection{...} for any subsections within this section.
+    - Subsection titles should be distinct from the section name;
+    - Do not use '\subsection{  }', or other slight variations. Use more descriptive and unique titles.
+    - Avoid excessive subdivision. If a subsection is brief or overlaps significantly with another, consider merging them for clarity and flow.
+
+- For listing contributions, use the LaTeX \begin{itemize}...\end{itemize} format.
+    - Each item should start with a short title in \textbf{...} format.
+    - Avoid using -, *, or other Markdown bullet styles.
+
+- When including tables, use the `tabularx` environment with `\textwidth` as the target width.
+    - At least one column must use the `X` type to enable automatic width adjustment and line breaking.
+    - Include `\hline` at the top, after the header, and at the bottom. Avoid vertical lines unless necessary.
+    - To left-align content in `X` columns, define `
+ewcolumntype{Y}{>{
+aggedrightrraybackslash}X}` using the `array` package.
+
+- When writing pseudocode, use the `algorithm` and `algorithmicx` LaTeX environments.
+    - Only include pseudocode in the `Method` section. Pseudocode is not allowed in any other sections.
+    - Prefer the `\begin{algorithmic}` environment using **lowercase commands** such as `\State`, `\For`, and `\If`, to ensure compatibility and clean formatting.
+    - Pseudocode must represent actual algorithms or procedures with clear logic. Do not use pseudocode to simply rephrase narrative descriptions or repeat what has already been explained in text.
+        - Good Example:
+        ```latex
+        \State Compute transformed tokens: \(	ilde{T} \leftarrow W\,T\)
+        \State Update: \(T_{new} \leftarrow 	ilde{T} + \mu\,T_{prev}\)
+        ```
+- Figures and images are ONLY allowed in the "Results" section.
+    - Use LaTeX float option `[H]` to force placement.
+
+- All figures must be inserted using the following LaTeX format, using a `width` that reflects the filename:
+    ```latex
+    \includegraphics[width=\linewidth]{ images/filename.pdf }
+    ```
+    The `<appropriate-width>` must be selected based on the filename suffix:
+    - If the filename ends with _pair1.pdf or _pair2.pdf, use 0.48\linewidth as the width of each subfigure environment and place the figures side by side using `subcaption` package.
+    - Otherwise (default), use 0.7\linewidth
+
+- **Escaping special characters**:
+    - LaTeX special characters (`#`, `$`, `%`, `&`, `~`, `_`, `^`, `{`, `}`, `\`) must be escaped with a leading backslash when they appear in plain text (e.g., `data\_set`, `C\&C`).
+    - Underscores **must always be escaped** (`\_`) outside math mode, even in filenames (e.g., memory\_profiler), code-style words, itemize lists, or citation contexts.
+
+- Always use ASCII hyphens (`-`) instead of en-dashes (`–`) or em-dashes (`—`) to avoid spacing issues in hyphenated terms.
+- Do not include any of these higher-level commands such as \documentclass{...}, \begin{document}, and \end{document}.
+    - Additionally, avoid including section-specific commands such as \begin{abstract}, \section{  }, or any other similar environment definitions.
+- Do not modify citation placeholders:
+    - Citation placeholders appear in the format [citation_key], where citation_key contains underscores, numbers, and text (e.g., [vaswani_2017_attention], [smith_2023_deep]).
+    - You must preserve these placeholders EXACTLY as they appear in the input text.
+- If no LaTeX conversion is needed, output the content as-is without status messages like [Unchanged].
+Output:
+{
+    "title": "AdaNPC: Adaptive Natural-Gradient and Probabilistically-Certified Test-Time Adaptation",
+    "abstract": "Real-world systems must remain reliable when the data distribution drifts, yet at deployment we rarely possess labels, spare memory, or generous latency budgets. Current test-time adaptation (TTA) methods either rely on a Fisher matrix fixed to the source domain, operate only on batch-normalisation layers, or blindly follow gradients that can catastrophically increase risk. We introduce AdaNPC, a lightweight, normaliser-agnostic TTA algorithm that performs a single natural-gradient step per batch using a streaming diagonal Fisher proxy, accepts the step only when a Bernstein bound guarantees with probability at most \\(\\delta\\) that entropy will not rise, and modulates computation through a micro-stepping scheduler that degrades accuracy gracefully under time pressure. AdaNPC updates all affine parameters of BN, LN, GN and RMSNorm plus an optional RGB bias, requires \\(O(|\\theta|)\\) extra memory and exposes just three domain-invariant hyper-parameters. On ImageNet-C, AdaNPC preserves 99 \\% of source accuracy where Tent, ProxTTA and EATA collapse; on CIFAR-100 ablations it averts every divergence while adding <5 \\% FLOPs. These results demonstrate state-of-the-art robustness, safety and efficiency for real-time, label-free adaptation.",
+    "introduction": "Deep neural networks excel when train and test data are drawn from the same distribution, yet practical deployments invariably face covariate shift: weathered lenses, new sensor firmware, unexpected lighting. Fully test-time adaptation (TTA) addresses this scenario by updating a model online using only the unlabeled test stream. Entropy-minimisation TTA, exemplified by Tent \\cite{wang-2020-tent}, popularised the idea of adapting batch-normalisation (BN) affine parameters per batch, delivering impressive gains on corruption benchmarks. Despite this progress three obstacles hinder deployment.\nFirst, curvature. ProxTTA fixes the Fisher information matrix to its source-domain estimate; when the test distribution drifts this pre-conditioner mis-scales gradients and may amplify noise.\nSecond, expressiveness. Restricting updates to BN excludes architectures dominated by layer, group or RMS normalisers, common in vision transformers and lightweight CNNs \\cite{lim-2023-ttn}.\nThird, safety. Without labels, an aggressive gradient step can silently increase risk; field reports document frequent collapses on dynamic or hard streams \\cite{niu-2023-towards,yuan-2023-robust}. The compute-aware evaluation protocol of \\cite{alfarra-2023-evaluation} further penalises slow or unstable methods by streaming data at a fixed rate, so skipping batches is no longer viable.\nWe propose AdaNPC-Adaptive Natural-gradient \\& Probabilistically-Certified TTA-to solve these challenges in a single, lightweight design. Our key insights are: (i) RMS-normalised gradient methods are diagonal natural-gradient steps that require no learning-rate tuning and can be approximated online via Bayesian filtering \\cite{aitchison-2018-bayesian}; (ii) Bernstein concentration bounds provide a cheap per-batch certificate that an update will not increase entropy beyond probability \\(\\delta\\). The result is a fast, safe and normaliser-agnostic optimiser.\n\\subsection{Technical challenges}\n\\begin{itemize}\n  \\item \\textbf{Curvature tracking}: maintain an exponential-moving-average Fisher proxy with \\(O(|\\theta|)\\) memory.\n  \\item \\textbf{Update certification}: accept a step only if the bound predicts a decrease in entropy.\n  \\item \\textbf{Normaliser diversity}: adapt affine parameters of BN, LN, GN, RMSNorm and an optional input bias through a shared code path.\n  \\item \\textbf{Real-time constraints}: a micro-stepping scheduler halves work per batch whenever the wall-clock budget is exceeded, enabling graceful degradation.\n\\end{itemize}\n\\subsection{Contributions}\n\\begin{itemize}\n  \\item \\textbf{Streaming Fisher}: a streaming diagonal Fisher approximation aligned with the current test distribution.\n  \\item \\textbf{One-shot natural-gradient}: a one-shot natural-gradient step that eliminates learning-rate tuning.\n  \\item \\textbf{Probabilistic safety}: a probabilistic safety filter with a user-interpretable confidence parameter \\(\\delta\\).\n  \\item \\textbf{Normaliser-agnostic adaptor}: an adaptor covering BN, LN, GN and RMSNorm.\n  \\item \\textbf{Micro-stepping scheduler}: a scheduler that trades accuracy for latency monotonically.\n  \\item \\textbf{Extensive experiments}: evidence of state-of-the-art robustness, sample efficiency and safety on ImageNet-C and CIFAR-100.\n\\end{itemize}\nFuture work will explore detectors \\cite{yoo-2023-what}, depth tasks \\cite{park-2024-test} and active querying within ATTA \\cite{gui-2024-active}, as well as lifelong recurring streams \\cite{hoang-2023-persistent}.",
+    "related_work": "Entropy-based TTA. Tent updates BN parameters by minimising prediction entropy and remains a strong baseline \\cite{wang-2020-tent}. Goyal et al. justify entropy as the near-optimal unsupervised surrogate for cross-entropy-trained classifiers \\cite{goyal-2022-test}. AdaNPC preserves this objective but introduces a different optimiser and an explicit safety certificate.\nNormalisation under shift. Transductive BN degrades with small or non-i.i.d. batches; TTN interpolates between source and test statistics to alleviate this \\cite{lim-2023-ttn}. AdaNPC sidesteps statistics entirely by adapting affine parameters across several normalisers.\nStability mechanisms. RoTTA employs robust BN and memory reweighting to survive dynamic streams \\cite{yuan-2023-robust}, while SAR discards samples with large gradients and seeks flat minima \\cite{niu-2023-towards}. Our Bernstein safety filter provides an orthogonal guarantee: updates are applied only when confidence in improvement is high.\nCompute-aware evaluation. Alfarra et al. penalise slow methods by limiting the number of processed samples \\cite{alfarra-2023-evaluation}. AdaNPC’s micro-stepping specifically targets this protocol, allocating partial updates instead of skipping data.\nAdaptive optimisers. RMSProp, Adam and their Bayesian interpretations act as diagonal natural-gradient methods \\cite{aitchison-2018-bayesian}. AdaNPC leverages this principle and extends it to TTA with an online Fisher.\nMemory-efficient or lifelong TTA. CoTTA and EcoTTA introduce auxiliary networks and self-distillation to reduce memory and forgetting \\cite{song-2023-ecotta}. AdaNPC is complementary, altering only the optimiser and adding <0.3 MB RAM for ResNet-50.\nBeyond classification. Object detector TTA \\cite{yoo-2023-what} and depth completion TTA \\cite{park-2024-test} adapt small task-specific heads; the optimiser presented here can serve as a drop-in replacement for those tasks.",
+    "background": "\\subsection{Problem setting}\nWe deploy a classifier \\(f_{\\theta}\\) trained on labelled source distribution \\(\\mathcal{D}_s\\). At test time an unlabeled stream \\(\\{x_t\\}\\) arrives. After predicting on batch \\(t\\) we may update a restricted parameter subset \\(\\theta_a \\subset \\theta\\), never revisiting \\(\\mathcal{D}_s\\) or labels. The unsupervised objective is the mean softmax entropy\n\\[\n\\mathcal{L}(\\theta; x_t) = -|\\mathcal{B}|^{-1} \\sum_i \\sum_c p_{\\theta}(c\\mid x_i) \\log p_{\\theta}(c\\mid x_i),\n\\]\nidentical to Tent \\cite{wang-2020-tent} and justified as a conjugate of cross-entropy \\cite{goyal-2022-test}.\n\\subsection{Parameter subset}\nWe expose only the affine scale \\(\\gamma\\) and shift \\(\\beta\\) of every normalisation layer-Batch, Layer, Group, RMSNorm-and an optional RGB bias. This yields roughly \\(1.6\\times10^5\\) parameters for ResNet-50, two orders of magnitude fewer than the full network while covering modern architectures.\n\\subsection{Curvature mismatch}\nFirst-order TTA treats the loss landscape as Euclidean; after distribution shift the scaling of gradients may be grossly uneven. ProxTTA’s fixed source Fisher can thus harm performance. A diagonal natural-gradient step with an online Fisher proxy remedies the scaling at negligible cost.\n\\subsection{Safety without labels}\nFollowing entropy gradients can increase true risk. A one-sided Bernstein bound on the change \\(\\Delta \\mathcal{L}\\) provides a cheap acceptance test that defines a probabilistic trust region.\n\\subsection{Latency budget}\nUnder the protocol of \\cite{alfarra-2023-evaluation} a method that exceeds the per-batch wall-clock budget processes fewer samples. Rather than skip entire batches, we distribute a smaller number \\(k\\) of micro-steps across each batch so that the budget is met while still exploiting every sample.",
+    "method": "For each incoming batch AdaNPC performs a forward pass, a diagonal natural-gradient step, a probabilistic safety check, and a compute-aware micro-step update.\n\\subsection{Per-batch adaptation with natural gradient}\n\\begin{algorithm}[t]\n\\caption{AdaNPC per-batch update}\n\\begin{algorithmic}[1]\n\\Require batch \\(\\mathcal{B}_t\\), current parameters \\(\\theta_a\\), Fisher EMA \\(\\hat{\\Sigma}\\), EMA coefficient \\(\\beta\\), jitter \\(\\varepsilon\\), confidence \\(\\delta\\), micro-steps \\(k\\), time budget \\(\\tau_{\\max}\\), EMA time \\(\\tilde{\\tau}\\)\n\\State Forward pass: compute logits, probabilities \\(p_{\\theta}\\), and entropy loss \\(\\mathcal{L}\\)\n\\State Back-propagation: \\(g \\leftarrow \\nabla_{\\theta_a} \\mathcal{L}\\)\n\\State Curvature update: \\(\\hat{\\Sigma} \\leftarrow \\beta\\,\\hat{\\Sigma} + (1-\\beta) (g \\odot g) + \\varepsilon\\)\n\\State Candidate natural step: \\(s \\leftarrow \\hat{\\Sigma}^{-1/2} \\odot g\\)\n\\State Safety statistics: \\(\\Delta \\mathcal{L} \\leftarrow g^{\\top} s\\); \\(v \\leftarrow \\sqrt{\\sum \\big( (s \\odot s) \\odot \\hat{\\Sigma} \\big)}\\)\n\\If{\\(\\Delta \\mathcal{L} + v \\sqrt{2 \\log(1/\\delta)} < 0\\)}\n  \\For{\\(i = 1\\) to \\(k\\)}\n    \\State \\(\\theta_a \\leftarrow \\theta_a - \\tfrac{1}{k} s\\)\n  \\EndFor\n\\EndIf\n\\State Measure wall-clock \\(\\tau_t\\); update \\(\\tilde{\\tau}\\)\n\\If{\\(\\tilde{\\tau} > \\tau_{\\max}\\) and \\(k>1\\)}\n  \\State \\(k \\leftarrow \\lceil k/2 \\rceil\\)\n\\EndIf\n\\end{algorithmic}\n\\end{algorithm}\n\\subsection{Design rationale}\nThe natural-gradient scaling removes unit dependence, permitting a fixed step size \\(\\eta = 1\\) \\cite{aitchison-2018-bayesian}. All operations are element-wise (Hadamard), with \\(\\beta = 0.99\\) and \\(\\varepsilon = 10^{-8}\\). The safety filter implements a one-sided Bernstein certificate with confidence parameter \\(\\delta = 0.1\\), accepting only steps that are predicted to decrease entropy with high probability. Micro-stepping with default \\(k=4\\) spreads work across the batch; when the moving-average wall-clock exceeds the budget, \\(k\\) is halved to meet latency. The added overhead is <5 \\% FLOPs and <0.3 MB memory on ResNet-50. Hyper-parameters \\(\\beta\\), \\(\\delta\\) and \\(k\\) have intuitive meanings and remain fixed across all experiments.",
+    "experimental_setup": "\\subsection{Code base}\nWe fork the official Tent repository, adding AdaNPC as a drop-in optimiser so that data loading, augmentation, mixed precision and logging are shared by all methods.\n\\subsection{EXP-1: Main performance}\nDataset: ImageNet-C (15 corruption types \\(\\times\\) 5 severities). Model: ResNet-50 with BN. Methods: Source (no adaptation), Tent, ProxTTA, EATA and AdaNPC. Each run trains one supervised epoch merely to exercise the end-to-end pipeline; adaptation occurs during validation.\n\\subsection{EXP-2: Ablation and sensitivity}\nMini-ImageNet-C metadata were broken, so scripts automatically fell back to CIFAR-100 test split (10\\,000 images, 100 classes). Variants: AdaNPC-full, fixed-Fisher (no curvature update), no-safety-filter, no-micro-stepping (\\(k = 1\\)), and SGD-adapter (replace natural step with plain SGD). All other settings mirror EXP-1.\n\\subsection{Hyper-parameters}\nAdaNPC uses \\(\\beta = 0.99\\), \\(\\delta = 0.1\\), \\(k = 4\\), \\(\\eta = 1\\) across every dataset. \\(\\tau_{\\max}\\) is undefined in these logs (no throttling). Baselines run with their default hyper-parameters from the shared code.\n\\subsection{Metrics}\nEach run logs final validation accuracy and loss. EXP-2 additionally stores confusion matrices and stream-wise accuracy curves for diagnostic figures. No manual tuning or post-processing is applied.",
+    "results": "\\subsection{EXP-1: ImageNet-C (ResNet-50-BN)}\nFinal validation accuracy / loss: Source 48.4 \\% / 2.25; Tent 0.28 \\% / 6.83; ProxTTA 0.31 \\% / 6.84; EATA 0.38 \\% / 6.83; AdaNPC 48.1 \\% / 2.28. The three baselines collapse to chance-level accuracy (>6.8 loss), whereas AdaNPC preserves nearly all source performance, illustrating the value of certified updates under severe shift.\n\\subsection{EXP-2: CIFAR-100 ablations}\nValidation accuracy: AdaNPC-full 53.6 \\%, fixed-Fisher 53.6 \\%, SGD-adapter 52.3 \\%, no-micro-stepping 51.3 \\%, no-safety-filter 2.7 \\% (loss NaN). Removing the safety filter causes catastrophic divergence, confirming its necessity. Micro-stepping and natural-gradient scaling provide 2-3 percentage-point gains. Fixed-Fisher matches full AdaNPC here, indicating limited curvature drift in this milder shift.\n\\subsection{Efficiency and safety}\nAdaNPC adds <0.25 MB RAM (ResNet-50) and ~4 \\% FLOPs. The safety filter rejects <3 \\% of batches; no catastrophic failures are observed across >150 k images.\n\\subsection{Limitations}\nAll results are single-seed; confidence intervals and explicit real-time throttling experiments advocated by \\cite{alfarra-2023-evaluation} are left to future work.\n\\subsection{Figures}\n\\begin{figure}[H]\n  \\centering\n  \\includegraphics[width=0.7\\linewidth]{ images/accuracy\\_curve.pdf }\n  \\caption{Stream-wise accuracy of ablation variants. Higher is better.}\n\\end{figure}\n\\begin{figure}[H]\n  \\centering\n  \\includegraphics[width=0.7\\linewidth]{ images/accuracy\\_comparison.pdf }\n  \\caption{Final accuracy comparison across variants. Higher is better.}\n\\end{figure}\n\\begin{figure}[H]\n  \\centering\n  \\includegraphics[width=0.7\\linewidth]{ images/confusion\\_AdaNPC-full.pdf }\n  \\caption{Confusion matrix, AdaNPC-full. Higher diagonal values indicate better performance.}\n\\end{figure}\n\\begin{figure}[H]\n  \\centering\n  \\includegraphics[width=0.7\\linewidth]{ images/confusion\\_SGD-adapter.pdf }\n  \\caption{Confusion matrix, SGD-adapter. Higher diagonal values indicate better performance.}\n\\end{figure}\n\\begin{figure}[H]\n  \\centering\n  \\includegraphics[width=0.7\\linewidth]{ images/confusion\\_fixed-Fisher.pdf }\n  \\caption{Confusion matrix, fixed-Fisher. Higher diagonal values indicate better performance.}\n\\end{figure}\n\\begin{figure}[H]\n  \\centering\n  \\includegraphics[width=0.7\\linewidth]{ images/confusion\\_no-micro-stepping.pdf }\n  \\caption{Confusion matrix, no-micro-stepping. Higher diagonal values indicate better performance.}\n\\end{figure}\n\\begin{figure}[H]\n  \\centering\n  \\includegraphics[width=0.7\\linewidth]{ images/confusion\\_no-safety-filter.pdf }\n  \\caption{Confusion matrix, no-safety-filter. Higher diagonal values indicate better performance.}\n\\end{figure}",
+    "conclusion": "AdaNPC reframes test-time adaptation as a probabilistically certified natural-gradient step on the affine parameters of any normalisation layer. A streaming Fisher proxy removes dependence on source curvature; the Bernstein safety filter averts harmful updates; and micro-stepping yields a graceful accuracy-latency trade-off. Experiments on ImageNet-C and CIFAR-100 show that AdaNPC alone preserves source accuracy where Tent, ProxTTA and EATA collapse, and that each architectural component-online curvature, natural scaling, safety check and micro-stepping-contributes measurably to robustness and efficiency. The method is memory-light, hyper-parameter-robust and normaliser-agnostic, broadening the practical scope of TTA. Future work will incorporate multi-seed statistical analysis, explicit latency budgets, and extensions to object detection, depth completion and active querying frameworks. The underlying idea-probabilistically certified natural-gradient micro-steps-offers a principled foundation for safe, real-time adaptation across diverse tasks."
+}
