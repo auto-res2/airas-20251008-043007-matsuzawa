@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+The paper first introduces the recurring TTA setting, which extends practical TTA by allowing environments to recur over time. It then conducts a theoretical analysis using an e-perturbed binary Gaussian Mixture Model Classifier (e-GMMC) to simulate and understand model collapse, where the pseudo-label predictor is perturbed to maintain a false negative rate. This analysis explains factors contributing to collapse: prior data distribution, intrinsic category differences, update rate, and false negative rate (FNR). PeTTA, the proposed method, equips TTA with a mechanism to sense divergence from the initial model (theta0) by measuring the Mahalanobis distance of feature embedding vectors' first moments (gamma_y_t). It then adaptively adjusts the regularization term coefficient (lambda_t) and the EMA update rate (alpha_t) based on this sensed divergence, prioritizing collapse prevention when deviation is significant. PeTTA integrates these adaptive parameters with a mean teacher update framework, category-balanced memory bank, robust batch normalization, and an anchor loss (LAL) which minimizes KL divergence between current and source model predictions.
+
+# GitHub URLs List
+['https://github.com/oripress/CCC', 'https://github.com/DianCh/AdaContrast', 'https://github.com/BIT-DA/RoTTA', 'https://github.com/mariodoebler/test-time-adaptation', 'https://github.com/hendrycks/robustness']
+Output:
+{
+    "index": 2
+}
