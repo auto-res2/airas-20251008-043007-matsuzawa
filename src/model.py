@@ -149,7 +149,7 @@ class AdaNPCAdaptor(nn.Module):
         logits = self.base_model(x)
         loss = softmax_entropy(logits).mean()
         grads = torch.autograd.grad(loss, self.params, retain_graph=False, create_graph=False)
-        g_vec = self._flatten_grads(grads).detach()
+        g_vec = self._flatten_grads(list(grads)).detach()
 
         # update streaming Fisher diag (variance proxy)
         if self.var is None:
@@ -203,14 +203,20 @@ def get_model(cfg: Dict[str, Any], num_classes: int):
         return base_model
     if tta == "tent":
         tent_cfg = model_cfg.get("tent", {})
-        return TentAdaptor(base_model, lr=tent_cfg.get("lr", 1e-3),
-                           tau_max=tent_cfg.get("tau_max"))
+        lr = tent_cfg.get("lr", 1e-3)
+        tau_max = tent_cfg.get("tau_max")
+        return TentAdaptor(base_model, lr=float(lr) if lr is not None else 1e-3,
+                           tau_max=float(tau_max) if tau_max is not None else None)
     if tta == "adanpc":
         ad_cfg = model_cfg.get("adanpc", {})
+        beta_raw = ad_cfg.get("beta", 0.99)
+        delta_raw = ad_cfg.get("delta", 0.1)
+        tau_max_raw = ad_cfg.get("tau_max")
+        micro_steps_raw = ad_cfg.get("micro_steps", 4)
         return AdaNPCAdaptor(base_model,
-                             beta=ad_cfg.get("beta", 0.99),
-                             delta=ad_cfg.get("delta", 0.1),
-                             tau_max=ad_cfg.get("tau_max"),
-                             micro_steps=ad_cfg.get("micro_steps", 4))
+                             beta=float(beta_raw),
+                             delta=float(delta_raw),
+                             tau_max=float(tau_max_raw) if tau_max_raw is not None else None,
+                             micro_steps=int(micro_steps_raw))
 
     raise ValueError(f"Unsupported TTA method: {tta}")
