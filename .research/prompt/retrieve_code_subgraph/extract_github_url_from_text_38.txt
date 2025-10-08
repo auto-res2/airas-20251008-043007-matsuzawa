@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+Active inference operates on the principle of sampling data points based on a machine learning model's uncertainty. A sampling rule π(x) is derived from an uncertainty measure u(x) (e.g., predicting error magnitude in regression, or using probability distribution entropy in classification), with π(x) being proportional to u(x) and normalized to meet a predefined labeling budget. In the batch setting, a pre-trained model f is fixed, and labels are collected simultaneously. The estimator used is an augmented inverse propensity weighting (AIPW) type for mean estimation, and a modified M-estimator for general convex M-estimation, where the loss function incorporates predictions and inverse propensity weights. In the sequential setting, the model ft and sampling rule πt are iteratively updated as new labels are collected, leveraging a martingale structure for tractable inference via the martingale central limit theorem. An 'oracle' sampling rule is derived to minimize variance, which samples proportionally to the expected magnitude of model error. Practically, the sampling rule π(x) ∝ u(x) is stabilized by mixing it with a uniform sampling rule (πunif = nb/n) using a tuning parameter τ, defined as π(τ)(x) = (1 - τ) * π(x) + τ * πunif(x). τ can be optimized on historical data or set as a constant.
+
+# GitHub URLs List
+['https://github.com/tijana-zrnic/active-inference']
+Output:
+{
+    "index": 0
+}
