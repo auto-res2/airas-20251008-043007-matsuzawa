@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+RoTTA addresses PTTA challenges with three main components. First, Robust Batch Normalization (RBN) is introduced to stably estimate normalization statistics, replacing current batch statistics with global ones maintained by exponential moving average from buffered samples. Second, a Category-Balanced Sampling with Timeliness and Uncertainty (CSTU) memory bank is utilized. This memory bank samples data to maintain category balance while prioritizing newer and less uncertain samples based on a heuristic score. Third, robust training with timeliness is implemented using a teacher-student model. The student model is updated by minimizing a loss on the memory bank, and the teacher model is updated via an exponential moving average of the student's parameters. A time-aware reweighting strategy assigns lower weights to older samples in the loss calculation to stabilize adaptation, and only affine parameters in RBN are trained.
+
+# GitHub URLs List
+['https://github.com/BIT-DA/RoTTA', 'https://github.com/fiveai/LAME', 'https://github.com/qinenergy/cotta']
+Output:
+{
+    "index": 0
+}
