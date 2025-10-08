@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+Tent adapts deep networks by minimizing the Shannon entropy of model predictions H(ˆy) during testing. This is achieved by modulating features through two main steps: 1) estimating normalization statistics (mean µ and standard deviation σ) and 2) optimizing channel-wise affine transformation parameters (scale γ and shift β). These modulations are applied to the normalization layers of a pre-trained source model. The normalization statistics are estimated on each batch during the forward pass, while the affine parameters γ and β are updated via gradient descent (SGD with momentum or Adam) on the test entropy, without altering the training process or the majority of model parameters. This process can be applied online (continuous iteration) or offline (fixed number of updates before inference).
+
+# GitHub URLs List
+['https://github.com/DequanWang/tent']
+Output:
+{
+    "index": 0
+}
