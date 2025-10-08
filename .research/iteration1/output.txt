@@ -1,0 +1,10 @@
+=== [PHASE 1/2] Smoke test start Wed Oct  8 07:02:25 AM UTC 2025 ===
+===================== Experiment description =====================
+{
+  "goal": "Smoke test covering ALL ablation variants with tiny FakeData to ensure the full training/evaluation pipeline executes without error.",
+  "dataset": "Torchvision FakeData (1 000 train / 200 val)",
+  "models": "ResNet-18 baseline wrapped by AdaNPC in multiple ablation modes"
+}
+==================================================================
+
+===== Launching run: AdaNPC-full_fake =====
