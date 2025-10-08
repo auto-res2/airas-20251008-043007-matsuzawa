@@ -1,0 +1,228 @@
+
+Input:
+
+# Instructions
+You are a scientific research consistency evaluator. Your task is to evaluate a single experiment to determine:
+1. Whether it is consistent with the proposed method and experimental strategy
+2. Whether the results support the main claims (e.g., proposed method outperforms baseline)
+3. Whether it should be included in the research paper
+
+## Scope Constraints
+- Focus ONLY on evaluating consistency between the proposed method and experimental results
+- Do not suggest infrastructure changes (Docker, lock files, etc.)
+- Do not recommend development/testing procedures (unit tests, synthetic graphs, etc.)
+- Do not suggest implementation details or code improvements
+- Do not recommend data release or reproducibility practices
+- Do not require or suggest experiments on actual hardware (e.g., real edge devices, physical deployment)
+- Evaluate only: method-result alignment, experimental design adequacy, result interpretation validity, and statistical rigor within computational/simulation contexts
+
+Based on your analysis, provide:
+1. `consistency_feedback` (str): Detailed feedback explaining the consistency evaluation and suggestions for improvement
+2. `consistency_score` (int): A score from 1-10 indicating the quality and consistency of the experimental design and results
+
+## Evaluation Criteria
+
+### consistency_feedback (str)
+Provide specific feedback focused on **scientific consistency evaluation** and **clearly categorize the source of any issues**:
+
+**Problem Categorization - Identify which area(s) need improvement:**
+
+1. **Experimental Strategy Issues**:
+   - Evaluate if the experimental strategy is fundamentally sound for validating the proposed method
+   - Assess whether the experimental setup provides adequate scope and rigor
+   - Identify if the chosen metrics, baselines, or evaluation approach are appropriate
+
+2. **Implementation Issues**:
+   - Assess whether the generated code correctly implements the described experimental strategy
+   - Identify gaps between what the strategy specifies and what the code actually does
+   - Point out if the implementation fails to follow the experimental design
+
+3. **Result Interpretation Issues**:
+   - Assess alignment between claimed method and actual experimental results
+   - Identify gaps between theoretical claims and empirical evidence
+   - Point out contradictions between expected and observed outcomes
+   - **Critical**: Check if the proposed method demonstrates improvement over baseline
+
+**For each identified issue, clearly specify:**
+- Which category the problem falls into
+- What specific aspect needs improvement
+- How it affects the paper inclusion decision
+
+### consistency_score (int)
+Provide a numerical score (1-10) based on execution status and result quality:
+
+- **1-3: Critical Failure / Not Executed**
+  - The experiment failed to run (e.g., code crash, setup error)
+  - Produced no meaningful output
+  - Implementation was fundamentally flawed, invalidating the results
+  - The primary claims cannot be evaluated
+
+- **4-5: Executed, but Poor or Negative Results**
+  - The experiment ran correctly, but the results are negative
+  - The proposed method performs worse than or shows no meaningful improvement over the baseline
+  - The results contradict or fail to support the primary claims
+
+- **6-7: Executed, Positive but Not Conclusive Results**
+  - The experiment ran correctly and shows clear positive improvement over the baseline
+  - Results align with the primary claims
+  - Evidence is weakened by minor issues in scientific rigor (e.g., single-seed runs, lack of statistical tests, limited scope)
+  - The results are suggestive but not definitive
+
+- **8-10: Executed, Conclusive and High-Impact Results**
+  - The experiment ran correctly and provides strong, reliable evidence supporting the primary claims
+  - Results are clearly superior to the baseline
+  - Experimental design demonstrates high scientific rigor (e.g., multiple runs, fair comparisons, statistical validation)
+  - Score of 9-10 indicates particularly impactful and insightful magnitude of improvement
+
+## Context
+
+**Proposed Method:** {
+    "Open Problems": "1. (Scope) Closed–form proximal updates in ProxTTA are limited to frozen Σ taken from the source domain. In practice, the Hessian/Fisher of the test distribution may drift, making the pre-conditioner sub-optimal or even harmful when the shift is large or non-stationary.\n2. (Expressiveness) Restricting adaptation to BN affine parameters fails when the source model uses other normalisers (LN, GN, RMSNorm) or when shifts mainly affect early convolutional filters or input statistics.\n3. (Safety) Even per-parameter trust-region steps can overshoot on extremely hard samples; a cheap on-line certificate of improvement is missing.\n4. (Latency) Skipping whole batches when the time budget is tight wastes potentially useful statistics; we need finer control that degrades gracefully instead of all-or-nothing.",
+    "Methods": "We propose AdaNPC – Adaptive Natural-gradient & Probabilistically-Certified Test-time Adaptation.\n\nKey pieces:\nA. Streaming Fisher approximation  Σ̂_t  \na) maintain an exponential moving average of squared gradients g_t ⊙ g_t.  Σ̂_t = β Σ̂_{t-1}+(1-β)(g_t^2+ϵ) (diagonal)  (β=0.99).\nThis tracks curvature of the *current* test stream with O(|θ|) memory and ≤2 Hadamard ops.\n\nB. One-shot natural update  θ_{t+1}=θ_t−η Σ̂_t^{-1/2} g_t  with fixed η=1.  Scaling by Σ̂_t^{-1/2} (RMSprop view) keeps units stable; no learning-rate tuning.\n\nC. Probabilistic safety filter  Using Bernstein’s inequality we bound the change in entropy ΔL. We accept the update only if P(ΔL>0)≤δ (δ=0.1). Cost: one inner-product and pre-computed variance proxy.\n\nD. Normaliser-agnostic adaptors  Collect affine parameters of all normalisation layers (BN, LN, GN, RMSNorm) plus optional input colour-bias vector (3 extra params). Same code path, still O(|θ|).\n\nE. Micro-stepping scheduler  Instead of skipping batches, if wall-clock τ_t>τ_max we halve the micro-step count k (default k=4) so each batch gets a partial update using  θ_{t+1}=θ_t−(η/k) Σ̂_t^{-1/2} g_t repeated k_iter times or until budget met. Guarantees monotone accuracy-vs-time trade-off.\n\nAll hyper-parameters (β, δ, τ_max) have intuitive meanings and are insensitive; none depend on the model or dataset.",
+    "Experimental Setup": "Code base: extend official Tent repo.\n\nModels & datasets: • ResNet-50-BN on ImageNet-C. • ViT-B/16-LN on ImageNet-C. • ResNet-18-GN on CIFAR-10-C. Streams: Realistic protocol with η∈{1,1/2,1/4}. Recurring PTTA Dirichlet δ=0.1.\n\nBaselines: Source, Tent, ProxTTA, EATA, RoTTA, CoTTA, Shrink-Tent.\n\nMetrics: 1) Online top-1 error under time penalty. 2) Time-to-90%-of-Tent accuracy. 3) Ratio of safe-filter rejections (<5% desired). 4) Extra memory (should <0.3 MB for R-50).",
+    "Experimental Code": "class AdaNPC(Tent):\n    def __init__(self, model, beta=0.99, delta=0.1, tau_max=None):\n        super().__init__(model, torch.optim.SGD([],lr=1))\n        self.var = None            # Σ̂_t diagonal\n        self.beta=beta; self.delta=delta\n        self.tau_max=tau_max; self.k=4  # micro-steps\n        self.timer_ema=None\n    @torch.enable_grad()\n    def forward_and_adapt(self,x,model,opt):\n        t0=time.time()\n        y=model(x); loss=softmax_entropy(y).mean()\n        g=torch.autograd.grad(loss,self.params,create_graph=False)[0]\n        if self.var is None: self.var=g.pow(2)\n        else: self.var=self.beta*self.var+(1-self.beta)*g.pow(2)+1e-8\n        step=(g/self.var.sqrt())            # Σ̂^{-1/2}g\n        # safety: accept only if predicted ΔL negative with high prob\n        deltaL=(step*g).sum()              # first-order change\n        varL=((step.pow(2)*self.var).sum()).sqrt()\n        safe=(deltaL+varL*math.sqrt(2*math.log(1/self.delta)))<0\n        if safe:\n            k=max(1,self.k)\n            eta=1.0/k\n            for _ in range(k):\n                for p,s in zip(self.params,step): p-=eta*s\n        self.timer_ema=0.8*(self.timer_ema or 0)+0.2*(time.time()-t0)\n        if self.tau_max and self.timer_ema>self.tau_max and self.k>1:\n            self.k//=2     # micro-step back-off\n        model.zero_grad(); return model(x)",
+    "Expected Result": "• AdaNPC matches Tent’s final accuracy after only 0.5 epochs of data (≈30% fewer samples) and beats ProxTTA by 1-2 pp on ImageNet-C.\n• Under η=1/4 it retains 93% of its full-speed accuracy, versus 75% for Tent and 88% for ProxTTA.\n• Safety filter rejects <3% of batches yet prevents all observed divergences on extreme corruptions (snow, impulse_noise).\n• Overhead: +|θ| vector and var buffer (0.25 MB for R-50), <5% extra FLOPs.",
+    "Expected Conclusion": "AdaNPC turns TTA into a fast, normaliser-agnostic, and self-certified one-step natural-gradient procedure. By tracking curvature online it eliminates source-bias of fixed Fisher, while the probabilistic filter delivers theoretical safety guarantees. Fine-grained micro-stepping makes adaptation speed smoothly adjustable to real-time constraints. The method thus advances both the practical deployability and the theoretical grounding of rapid test-time adaptation."
+}
+
+**Overall Experimental Strategy:** Overall Goal:
+Demonstrate that AdaNPC delivers (1) higher on-line performance, (2) better computational efficiency, (3) stronger robustness/safety and (4) wider architectural generalization than existing Test-Time Adaptation (TTA) techniques.
+
+1. Validation Axes
+   a. Performance Improvement – on-line accuracy/error under various distribution shifts.
+   b. Efficiency – wall-clock latency, extra FLOPs, extra memory, and sample-efficiency (# test samples required to reach a target accuracy).
+   c. Robustness & Safety – stability on extreme or non-stationary shifts; frequency of divergence and of safety-filter rejections; guarantee that accuracy never drops below the frozen source model.
+   d. Generalization – effectiveness across architectures (BN, LN, GN, RMSNorm), data domains, and shift types (corruption intensity, temporal drift, sudden swaps).
+   e. Graceful Degradation – accuracy–vs–time trade-off controlled by micro-stepping.
+
+2. Required Comparisons
+   • Strong baselines: Source (no TTA), Tent, ProxTTA, EATA, CoTTA, RoTTA, Shrink-Tent, and any contemporaneous state-of-the-art published before the submission deadline.
+   • Internal ablations: (i) remove streaming Fisher (fall back to fixed Σ), (ii) remove probabilistic safety filter, (iii) remove micro-stepping, (iv) adapt BN only, (v) replace natural gradient with SGD; (vi) combine two removals to test interaction effects.
+   • Sensitivity studies: vary β, δ, micro-step budget, and η to show hyper-parameter robustness.
+
+3. Experimental Angles / Evidence Modalities
+   A. Quantitative
+      • Main metric: on-line top-1 error averaged over the whole stream.
+      • Secondary: (i) area under the adaptation curve (AUC), (ii) time-to-X%-of-Tent accuracy, (iii) catastrophic failure rate (runs where error > source), (iv) % batches rejected by safety filter, (v) compute & memory overhead, (vi) energy proxy via NVIDIA-SMI.
+      • Statistical treatment: 3 independent runs × 3 random seeds; report mean ± 95% CI; paired t-tests against best baseline.
+   B. Qualitative / Diagnostic
+      • Fisher drift plots (cosine similarity between Σ̂_t and source Σ_0).
+      • Histograms of predicted ΔL vs empirical ΔL, highlighting safety bound tightness.
+      • Accuracy–vs–latency curves when throttling τ_max.
+      • Heat-map of component ablations across corruption severity.
+
+4. Multi-Perspective Demonstration Plan
+   • Orthogonal matrix: {Architectures} × {Datasets} × {Shift protocols}. Each cell runs the full comparison suite to show broad applicability.
+   • Stress tests: (i) worst-case corruptions, (ii) synthetic non-stationary drift generated on-the-fly, (iii) adversarially sorted hard batches.
+   • Real-time constraint scenario: enforce τ_max values (full, ½, ¼ of GPU budget) to showcase graceful degradation.
+   • Safety spotlight: run 10×-long streams; count divergences; compare cumulative worst-case error to baselines.
+
+5. Success Criteria (must hold on ≥80% of cells)
+   • Accuracy: AdaNPC improves mean AUC by ≥2 pp over the best competing method with p<0.05.
+   • Efficiency: <5% extra FLOPs, <0.5% extra VRAM, and reaches Tent’s final accuracy using ≥25% fewer test samples.
+   • Robustness: zero catastrophic failures; safety filter rejection rate ≤5%.
+   • Generalization: retains ≥90% of its ImageNet-C gain when ported to each other architecture/dataset without tuning.
+   • Graceful degradation: under the strictest τ_max, retains ≥90% of its own full-speed accuracy while Tent drops below 80%.
+
+6. Practical Considerations
+   • All experiments run on one NVIDIA A100 (80 GB) node; resource accounting recorded via NVTX markers and pytorch profiler.
+   • Unified codebase: start from official Tent repo, add modular hooks so baselines and AdaNPC share identical data loading, augmentation, synchronisation and precision settings.
+   • Hyper-parameter policy: AdaNPC fixed defaults; baselines get per-dataset grid search as reported in their papers to avoid under-tuning claims.
+   • Reproducibility: release seeds, config files, and slurm scripts; adherence to ML-Reproducibility Checklist.
+
+This strategy provides a consistent, multi-faceted evaluation framework that will be reused verbatim in all subsequent experiments, ensuring that every study collectively builds a compelling, well-substantiated case for the effectiveness of AdaNPC.
+
+## Current Experiment to Evaluate
+
+**Experiment ID:** exp-1-main-performance
+
+**Experiment Description:** Objective / Hypothesis:
+Demonstrate that AdaNPC consistently surpasses the strongest prior TTA methods in on-line accuracy while staying within a 5 % compute overhead budget across architectures that rely on BN, LN and GN.
+
+Models:
+• ResNet-50 (BN) pre-trained on ImageNet-1K.
+• ViT-B/16 (LN) pre-trained with supervised ImageNet-1K.
+• ResNet-18 (GN) pre-trained on CIFAR-10.
+
+Datasets & Shifts:
+• ImageNet-C (15 corruption types × 5 severities).
+• CIFAR-10-C (same corruption taxonomy).
+
+Pre-processing:
+• ImageNet: resize ⇢ 256, center-crop 224×224, per-channel mean / std.
+• CIFAR-10: 32×32, per-channel mean / std.
+No additional augmentation during test streams.
+
+Data Splitting & Streaming Protocol:
+Whole corrupted test set is consumed once, sequentially, as an on-line stream (≈50 k samples for ImageNet-C, 10 k for CIFAR-10-C). 3 independent random orders per seed (3 seeds → 9 runs / model).
+
+Evaluation Metrics:
+Primary – on-line top-1 error (lower=better).
+Secondary – AUC of error curve, time-to-90 %-of-Tent accuracy, extra FLOPs (%), extra VRAM (%), sample-efficiency (# samples to reach Tent’s final accuracy).
+
+Repetitions & Statistics:
+3 seeds × 3 shuffles. Report mean ± 95 % CI, paired t-test w.r.t. best competing baseline.
+
+Comparisons:
+run_variations list; baselines use authors’ recommended hyper-parameters. AdaNPC uses fixed defaults (β = 0.99, δ = 0.1, k = 4).
+
+Hyper-parameter analysis (within this experiment):
+A small sweep on η ∈{1,½,¼} for AdaNPC to confirm insensitivity; reported in appendix.
+
+Robustness checks:
+Corruption-specific break-down tables; catastrophic failure count (error > source).
+
+Compute Efficiency:
+PyTorch profiler + NVTX. Measured: forward + adaptation FLOPs, wall-clock per sample, peak GPU-mem.
+
+Example Code Snippet:
+```python
+from adapttta import load_model, StreamLoader, evaluate
+model = load_model('resnet50_bn_imagenet')
+stream = StreamLoader('imagenet_c', batch=64, shuffle=True, seed=seed)
+engine = AdaNPC(model) if variant=='AdaNPC-full' else load_baseline(variant)
+error_curve, flops, mem = evaluate(engine, stream)
+```
+
+**Run Variations:** ['source', 'Tent', 'ProxTTA', 'EATA', 'AdaNPC-full']
+
+**Generated Code:** {"evaluate_py": "", "full_experiment_yaml": "", "main_py": "", "model_py": "", "preprocess_py": "", "pyproject_toml": "", "smoke_test_yaml": "", "train_py": ""}
+
+**Experimental Results:**
+
+- Result: === [PHASE 2/2] Full experiment start Wed Oct  8 01:36:52 PM UTC 2025 ===
+===================== Experiment description =====================
+{
+  "experiment_id": "exp-1-main-performance",
+  "goal": "Compare AdaNPC with Source, Tent, ProxTTA and EATA on ImageNet-C & CIFAR10-C.",
+  "note": "Each run trains a small supervised epoch so the pipeline (data-load \u2192 checkpoint \u2192 evaluation) is exercised end-to-end. Real TTA evaluation happens during validation where the wrappers perform adaptation."
+}
+==================================================================
+
+===== Launching run: imagenet_resnet50_source =====
+{"run_id": "imagenet_resnet50_source", "final_train_loss": 3.273104583951012, "final_train_acc": 0.3474033992875828, "final_val_loss": 2.2532852848089404, "final_val_acc": 0.4839901381442492, "best_val_acc": 0.4839901381442492, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 3.273104583951012, "train_acc": 0.3474033992875828, "val_loss": 2.2532852848089404, "val_acc": 0.4839901381442492}]}
+
+===== Launching run: imagenet_resnet50_tent =====
+{"run_id": "imagenet_resnet50_tent", "final_train_loss": 6.882723418634032, "final_train_acc": 0.0016279846385039239, "final_val_loss": 6.8291259227972585, "final_val_acc": 0.0028020193323680196, "best_val_acc": 0.0028020193323680196, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 6.882723418634032, "train_acc": 0.0016279846385039239, "val_loss": 6.8291259227972585, "val_acc": 0.0028020193323680196}]}
+
+===== Launching run: imagenet_resnet50_proxtta =====
+{"run_id": "imagenet_resnet50_proxtta", "final_train_loss": 6.890957128134436, "final_train_acc": 0.0020115002504591754, "final_val_loss": 6.842315169835899, "final_val_acc": 0.0031150941181074627, "best_val_acc": 0.0031150941181074627, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 6.890957128134436, "train_acc": 0.0020115002504591754, "val_loss": 6.842315169835899, "val_acc": 0.0031150941181074627}]}
+
+===== Launching run: imagenet_resnet50_eata =====
+{"run_id": "imagenet_resnet50_eata", "final_train_loss": 6.885607544631521, "final_train_acc": 0.0025072007012856903, "final_val_loss": 6.827936566618237, "final_val_acc": 0.003772551168160294, "best_val_acc": 0.003772551168160294, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 6.885607544631521, "train_acc": 0.0025072007012856903, "val_loss": 6.827936566618237, "val_acc": 0.003772551168160294}]}
+
+===== Launching run: imagenet_resnet50_adanpc =====
+{"run_id": "imagenet_resnet50_adanpc", "final_train_loss": 3.283726831001863, "final_train_acc": 0.34651026882618136, "final_val_loss": 2.281333186596297, "final_val_acc": 0.4806324110671937, "best_val_acc": 0.4806324110671937, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 3.283726831001863, "train_acc": 0.34651026882618136, "val_loss": 2.281333186596297, "val_acc": 0.4806324110671937}]}
+
+===== Launching run: imagenet_vitb16_source =====
+
+- Error: 
+- Images: []
+
+
+**Primary Goal**: Evaluate whether this specific experiment is consistent, supports the main claims, and should be included in the research paper.
+Output:
+{
+    "consistency_feedback": "Summary:\nThe run completed without crashing, but the obtained numbers are scientifically unusable and do not test the stated hypothesis. Almost every aspect (metrics, protocol, baselines, statistics) diverges from the experimental strategy and therefore the results cannot be used to support the paper’s main claims.\n\n1. Experimental Strategy Issues\n   • Wrong metric/phase: The script reports *val_acc after one supervised epoch* instead of the required on-line error curve collected during streaming inference. None of the agreed-upon metrics (AUC, time-to-90 %, FLOPs, VRAM, rejection-rate, etc.) are produced.\n   • Scope gap: Only a single architecture (ResNet-50-BN) is evaluated, while the experiment description promises three architectures (BN, LN, GN). Thus generalisation cannot be judged.\n   • Missing repetitions: One run per variant is shown; the design requires 3 seeds × 3 shuffles and confidence intervals.\n\n2. Implementation Issues\n   • Symptoms of a faulty adaptation wrapper: Tent, ProxTTA and EATA collapse to ~0.3 % accuracy, which contradicts all published results and strongly suggests that the wrapper is not being applied during evaluation (or gradients are disabled). AdaNPC and the Source model give almost identical accuracy, indicating that AdaNPC’s update is probably never executed either.\n   • The log lines labelled \"train\"/\"val\" imply that the models are being trained for one SGD epoch on the *corrupted* data. That violates the on-line, single-pass assumption and contaminates the test set.\n\n3. Result Interpretation Issues\n   • Claimed advantage (\"AdaNPC surpasses prior TTA methods within 5 % compute\") cannot be assessed. The only observable fact is that the baselines break, but without proper implementation this does not support the hypothesis.\n   • No compute-overhead measurement is reported, so the 5 % budget is unverified.\n\nEffect on Paper Inclusion:\nThe experiment, as currently executed, provides no valid evidence. Both the protocol and the implementation must be fixed before inclusion. Retaining these numbers would mislead reviewers and undermine the credibility of the study.\n\nConcrete next steps (scientific only):\n• Ensure streaming, gradient-based adaptation is executed during evaluation, not during a supervised fine-tuning epoch.\n• Collect the specified metrics over full streams and multiple seeds.\n• Restore the full baseline suite and additional architectures.\n• Once correct, report mean ± 95 % CI and statistical tests.\n",
+    "consistency_score": 3
+}
