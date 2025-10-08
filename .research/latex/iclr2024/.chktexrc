@@ -1,0 +1,2 @@
+# Suppress Warning 1 for algorithmicx commands which are known false positives
+CmdLine { -n1 }
