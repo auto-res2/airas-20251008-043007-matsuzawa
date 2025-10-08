@@ -1,0 +1,122 @@
+description:
+  goal: Smoke test covering ALL ablation variants with tiny FakeData to ensure
+    the full training/evaluation pipeline executes without error.
+  dataset: Torchvision FakeData (1 000 train / 200 val)
+  models: ResNet-18 baseline wrapped by AdaNPC in multiple ablation modes
+
+author: "AdaNPC – Automated Generation"
+experiments:
+  - run_id: AdaNPC-full_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: adanpc
+      variant: full
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        micro_steps: 4
+    training:
+      epochs: 1
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  - run_id: fixed-Fisher_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: adanpc
+      variant: fixed-fisher
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        micro_steps: 4
+    training:
+      epochs: 1
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  - run_id: no-safety-filter_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: adanpc
+      variant: no-safety-filter
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        micro_steps: 4
+    training:
+      epochs: 1
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  - run_id: no-micro-stepping_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: adanpc
+      variant: no-micro-stepping
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        micro_steps: 1
+    training:
+      epochs: 1
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
+
+  - run_id: SGD-adapter_fake
+    dataset:
+      name: FAKEDATA
+      img_size: 64
+      num_classes: 10
+      num_workers: 2
+    model:
+      name: resnet18
+      pretrained: false
+      tta: adanpc
+      variant: sgd-adapter
+      adanpc:
+        beta: 0.99
+        delta: 0.1
+        micro_steps: 4
+    training:
+      epochs: 1
+      batch_size: 32
+    optimizer:
+      name: SGD
+      lr: 0.01
+      momentum: 0.9
