@@ -1,0 +1,18 @@
+{
+  "run_id": "imagenet_resnet50_tent",
+  "final_train_loss": 6.882723418634032,
+  "final_train_acc": 0.0016279846385039239,
+  "final_val_loss": 6.8291259227972585,
+  "final_val_acc": 0.0028020193323680196,
+  "best_val_acc": 0.0028020193323680196,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 6.882723418634032,
+      "train_acc": 0.0016279846385039239,
+      "val_loss": 6.8291259227972585,
+      "val_acc": 0.0028020193323680196
+    }
+  ]
+}

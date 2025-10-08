@@ -1,0 +1,20 @@
+dataset:
+  img_size: 224
+  name: imagenet_c
+  num_workers: 8
+model:
+  name: resnet50_bn
+  pretrained: true
+  proxtta:
+    lamb: 0.001
+    lr: 0.001
+    momentum: 0.9
+  tta: proxtta
+optimizer:
+  lr: 0.001
+  momentum: 0.9
+  name: SGD
+run_id: imagenet_resnet50_proxtta
+training:
+  batch_size: 64
+  epochs: 1

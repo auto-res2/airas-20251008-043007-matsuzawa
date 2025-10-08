@@ -1,0 +1,20 @@
+dataset:
+  img_size: 224
+  name: imagenet_c
+  num_workers: 8
+model:
+  eata:
+    lr: 0.001
+    momentum: 0.9
+    thresh: 0.8
+  name: resnet50_bn
+  pretrained: true
+  tta: eata
+optimizer:
+  lr: 0.001
+  momentum: 0.9
+  name: SGD
+run_id: imagenet_resnet50_eata
+training:
+  batch_size: 64
+  epochs: 1

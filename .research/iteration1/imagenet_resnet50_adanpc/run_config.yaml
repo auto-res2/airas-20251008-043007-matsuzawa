@@ -1,0 +1,21 @@
+dataset:
+  img_size: 224
+  name: imagenet_c
+  num_workers: 8
+model:
+  adanpc:
+    beta: 0.99
+    delta: 0.1
+    micro_steps: 4
+    tau_max: null
+  name: resnet50_bn
+  pretrained: true
+  tta: adanpc
+optimizer:
+  lr: 0.001
+  momentum: 0.9
+  name: SGD
+run_id: imagenet_resnet50_adanpc
+training:
+  batch_size: 64
+  epochs: 1

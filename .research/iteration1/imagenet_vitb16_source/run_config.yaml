@@ -1,0 +1,16 @@
+dataset:
+  img_size: 224
+  name: imagenet_c
+  num_workers: 8
+model:
+  name: vit_b16_ln
+  pretrained: true
+  tta: none
+optimizer:
+  lr: 0.001
+  momentum: 0.9
+  name: SGD
+run_id: imagenet_vitb16_source
+training:
+  batch_size: 64
+  epochs: 1

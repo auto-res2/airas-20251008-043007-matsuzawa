@@ -1,0 +1,18 @@
+{
+  "run_id": "imagenet_resnet50_eata",
+  "final_train_loss": 6.885607544631521,
+  "final_train_acc": 0.0025072007012856903,
+  "final_val_loss": 6.827936566618237,
+  "final_val_acc": 0.003772551168160294,
+  "best_val_acc": 0.003772551168160294,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 6.885607544631521,
+      "train_acc": 0.0025072007012856903,
+      "val_loss": 6.827936566618237,
+      "val_acc": 0.003772551168160294
+    }
+  ]
+}

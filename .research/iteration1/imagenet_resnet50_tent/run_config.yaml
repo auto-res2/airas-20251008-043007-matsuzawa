@@ -1,0 +1,19 @@
+dataset:
+  img_size: 224
+  name: imagenet_c
+  num_workers: 8
+model:
+  name: resnet50_bn
+  pretrained: true
+  tent:
+    lr: 0.001
+    momentum: 0.9
+  tta: tent
+optimizer:
+  lr: 0.001
+  momentum: 0.9
+  name: SGD
+run_id: imagenet_resnet50_tent
+training:
+  batch_size: 64
+  epochs: 1

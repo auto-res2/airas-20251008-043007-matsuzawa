@@ -1,4 +1,4 @@
-=== [PHASE 2/2] Full experiment start Wed Oct  8 06:37:34 AM UTC 2025 ===
+=== [PHASE 2/2] Full experiment start Wed Oct  8 01:36:52 PM UTC 2025 ===
 ===================== Experiment description =====================
 {
   "experiment_id": "exp-1-main-performance",
@@ -8,57 +8,18 @@
 ==================================================================
 
 ===== Launching run: imagenet_resnet50_source =====
-=== [PHASE 1/2] Smoke test start Wed Oct  8 06:49:49 AM UTC 2025 ===
-===================== Experiment description =====================
-{
-  "goal": "Quick smoke test covering all TTA wrappers (Source, Tent, ProxTTA, EATA, AdaNPC).",
-  "dataset": "Torchvision FakeData (1000 train / 200 val)"
-}
-==================================================================
+{"run_id": "imagenet_resnet50_source", "final_train_loss": 3.273104583951012, "final_train_acc": 0.3474033992875828, "final_val_loss": 2.2532852848089404, "final_val_acc": 0.4839901381442492, "best_val_acc": 0.4839901381442492, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 3.273104583951012, "train_acc": 0.3474033992875828, "val_loss": 2.2532852848089404, "val_acc": 0.4839901381442492}]}
 
-===== Launching run: source_fake =====
-{"run_id": "source_fake", "final_train_loss": 2.1285196119739163, "final_train_acc": 0.29939516129032256, "final_val_loss": 2.587332344055176, "final_val_acc": 0.225, "best_val_acc": 0.225, "epochs": 2, "epoch_metrics": [{"epoch": 1, "train_loss": 2.5907390963646675, "train_acc": 0.10383064516129033, "val_loss": 3.0476888465881347, "val_acc": 0.175}, {"epoch": 2, "train_loss": 2.1285196119739163, "train_acc": 0.29939516129032256, "val_loss": 2.587332344055176, "val_acc": 0.225}]}
+===== Launching run: imagenet_resnet50_tent =====
+{"run_id": "imagenet_resnet50_tent", "final_train_loss": 6.882723418634032, "final_train_acc": 0.0016279846385039239, "final_val_loss": 6.8291259227972585, "final_val_acc": 0.0028020193323680196, "best_val_acc": 0.0028020193323680196, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 6.882723418634032, "train_acc": 0.0016279846385039239, "val_loss": 6.8291259227972585, "val_acc": 0.0028020193323680196}]}
 
-===== Launching run: tent_fake =====
-{"run_id": "tent_fake", "final_train_loss": 2.41478999968498, "final_train_acc": 0.1310483870967742, "final_val_loss": 2.4066640663146974, "final_val_acc": 0.13, "best_val_acc": 0.13, "epochs": 2, "epoch_metrics": [{"epoch": 1, "train_loss": 2.4587894562752015, "train_acc": 0.11189516129032258, "val_loss": 2.4420634365081786, "val_acc": 0.115}, {"epoch": 2, "train_loss": 2.41478999968498, "train_acc": 0.1310483870967742, "val_loss": 2.4066640663146974, "val_acc": 0.13}]}
+===== Launching run: imagenet_resnet50_proxtta =====
+{"run_id": "imagenet_resnet50_proxtta", "final_train_loss": 6.890957128134436, "final_train_acc": 0.0020115002504591754, "final_val_loss": 6.842315169835899, "final_val_acc": 0.0031150941181074627, "best_val_acc": 0.0031150941181074627, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 6.890957128134436, "train_acc": 0.0020115002504591754, "val_loss": 6.842315169835899, "val_acc": 0.0031150941181074627}]}
 
-===== Launching run: proxtta_fake =====
-{"run_id": "proxtta_fake", "final_train_loss": 2.409358855216734, "final_train_acc": 0.11290322580645161, "final_val_loss": 2.3345062923431397, "final_val_acc": 0.135, "best_val_acc": 0.135, "epochs": 2, "epoch_metrics": [{"epoch": 1, "train_loss": 2.4522793677545365, "train_acc": 0.10987903225806452, "val_loss": 2.3715556144714354, "val_acc": 0.13}, {"epoch": 2, "train_loss": 2.409358855216734, "train_acc": 0.11290322580645161, "val_loss": 2.3345062923431397, "val_acc": 0.135}]}
+===== Launching run: imagenet_resnet50_eata =====
+{"run_id": "imagenet_resnet50_eata", "final_train_loss": 6.885607544631521, "final_train_acc": 0.0025072007012856903, "final_val_loss": 6.827936566618237, "final_val_acc": 0.003772551168160294, "best_val_acc": 0.003772551168160294, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 6.885607544631521, "train_acc": 0.0025072007012856903, "val_loss": 6.827936566618237, "val_acc": 0.003772551168160294}]}
 
-===== Launching run: eata_fake =====
-=== [PHASE 1/2] Smoke test start Wed Oct  8 06:56:30 AM UTC 2025 ===
-===================== Experiment description =====================
-{
-  "goal": "Quick smoke test covering all TTA wrappers (Source, Tent, ProxTTA, EATA, AdaNPC).",
-  "dataset": "Torchvision FakeData (1000 train / 200 val)"
-}
-==================================================================
+===== Launching run: imagenet_resnet50_adanpc =====
+{"run_id": "imagenet_resnet50_adanpc", "final_train_loss": 3.283726831001863, "final_train_acc": 0.34651026882618136, "final_val_loss": 2.281333186596297, "final_val_acc": 0.4806324110671937, "best_val_acc": 0.4806324110671937, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 3.283726831001863, "train_acc": 0.34651026882618136, "val_loss": 2.281333186596297, "val_acc": 0.4806324110671937}]}
 
-===== Launching run: source_fake =====
-=== [PHASE 1/2] Smoke test start Wed Oct  8 07:02:28 AM UTC 2025 ===
-===================== Experiment description =====================
-{
-  "goal": "Quick smoke test covering all TTA wrappers (Source, Tent, ProxTTA, EATA, AdaNPC).",
-  "dataset": "Torchvision FakeData (1000 train / 200 val)"
-}
-==================================================================
-
-===== Launching run: source_fake =====
-=== [PHASE 1/2] Smoke test start Wed Oct  8 07:10:34 AM UTC 2025 ===
-===================== Experiment description =====================
-{
-  "goal": "Quick smoke test covering all TTA wrappers (Source, Tent, ProxTTA, EATA, AdaNPC).",
-  "dataset": "Torchvision FakeData (1000 train / 200 val)"
-}
-==================================================================
-
-===== Launching run: source_fake =====
-{"run_id": "source_fake", "final_train_loss": 2.2896996774981098, "final_train_acc": 0.25201612903225806, "final_val_loss": 3.0471415519714355, "final_val_acc": 0.315, "best_val_acc": 0.315, "epochs": 2, "epoch_metrics": [{"epoch": 1, "train_loss": 2.503536101310484, "train_acc": 0.11189516129032258, "val_loss": 3.355052089691162, "val_acc": 0.165}, {"epoch": 2, "train_loss": 2.2896996774981098, "train_acc": 0.25201612903225806, "val_loss": 3.0471415519714355, "val_acc": 0.315}]}
-
-===== Launching run: tent_fake =====
-{"run_id": "tent_fake", "final_train_loss": 2.400453629032258, "final_train_acc": 0.11088709677419355, "final_val_loss": 2.3655844497680665, "final_val_acc": 0.11, "best_val_acc": 0.11, "epochs": 2, "epoch_metrics": [{"epoch": 1, "train_loss": 2.433233445690524, "train_acc": 0.10887096774193548, "val_loss": 2.394460611343384, "val_acc": 0.09}, {"epoch": 2, "train_loss": 2.400453629032258, "train_acc": 0.11088709677419355, "val_loss": 2.3655844497680665, "val_acc": 0.11}]}
-
-===== Launching run: proxtta_fake =====
-{"run_id": "proxtta_fake", "final_train_loss": 2.4218041204637095, "final_train_acc": 0.11491935483870967, "final_val_loss": 2.466984272003174, "final_val_acc": 0.08, "best_val_acc": 0.08, "epochs": 2, "epoch_metrics": [{"epoch": 1, "train_loss": 2.461338166267641, "train_acc": 0.1028225806451613, "val_loss": 2.506912088394165, "val_acc": 0.08}, {"epoch": 2, "train_loss": 2.4218041204637095, "train_acc": 0.11491935483870967, "val_loss": 2.466984272003174, "val_acc": 0.08}]}
-
-===== Launching run: eata_fake =====
+===== Launching run: imagenet_vitb16_source =====

@@ -77,11 +77,19 @@ class HFDataset(Dataset):
         return len(self.ds)
 
     def __getitem__(self, idx):
-        item = self.ds[int(idx)]  # ensure int for streaming datasets
-        img = item["image"]  # PIL.Image
-        label = item["label"]
-        img = self.tfm(img)
-        return img, label
+        max_retries = 10
+        for attempt in range(max_retries):
+            try:
+                actual_idx = (int(idx) + attempt) % len(self.ds)
+                item = self.ds[actual_idx]
+                img = item["image"]
+                label = item["label"]
+                img = self.tfm(img)
+                return img, label
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise RuntimeError(f"Failed to load image after {max_retries} attempts: {e}")
+                continue
 
 
 # --------------------------------------------------------------------------- #

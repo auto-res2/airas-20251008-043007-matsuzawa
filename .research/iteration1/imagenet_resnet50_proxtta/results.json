@@ -1,0 +1,18 @@
+{
+  "run_id": "imagenet_resnet50_proxtta",
+  "final_train_loss": 6.890957128134436,
+  "final_train_acc": 0.0020115002504591754,
+  "final_val_loss": 6.842315169835899,
+  "final_val_acc": 0.0031150941181074627,
+  "best_val_acc": 0.0031150941181074627,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 6.890957128134436,
+      "train_acc": 0.0020115002504591754,
+      "val_loss": 6.842315169835899,
+      "val_acc": 0.0031150941181074627
+    }
+  ]
+}

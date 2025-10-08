@@ -1,0 +1,18 @@
+{
+  "run_id": "imagenet_resnet50_adanpc",
+  "final_train_loss": 3.283726831001863,
+  "final_train_acc": 0.34651026882618136,
+  "final_val_loss": 2.281333186596297,
+  "final_val_acc": 0.4806324110671937,
+  "best_val_acc": 0.4806324110671937,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 3.283726831001863,
+      "train_acc": 0.34651026882618136,
+      "val_loss": 2.281333186596297,
+      "val_acc": 0.4806324110671937
+    }
+  ]
+}
