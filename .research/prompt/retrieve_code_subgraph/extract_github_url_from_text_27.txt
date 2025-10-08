@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+The methodology revolves around two main strategies: 1) A Learnable Consistency Loss for TTT: Instead of empirically defining an auxiliary objective, a learnable consistency loss (Lwcont) is introduced using a weight subnetwork (fw(·)) to measure consistency between an input and its augmented version (z, z'). The loss Lwcont = ||fw(z - z')||, where fw is implemented with stacked ReLU layers. This loss is enforced to align with the main cross-entropy loss (Lmain) by minimizing the difference between their normalized gradients (min w ||ˆgmain − ˆgwcont||). Training involves alternating updates for the feature extractor/classifier and the weight subnetwork. 2) Including Additional Adaptive Parameters: New adaptive blocks (fΘ), parameterized by Θ, are inserted after each block of the pretrained feature extractor fθ. During the test-time adaptation phase, only these additional adaptive parameters fΘ are updated using the learned consistency loss (min Θ ||fw(z - z')||), leaving the original model parameters unchanged. Test-time adaptation uses an online updating setting.
+
+# GitHub URLs List
+['https://github.com/liangchen527/ITTA']
+Output:
+{
+    "index": 0
+}
