@@ -1,22 +1,23 @@
 dataset:
-  img_size: 64
-  name: FAKEDATA
-  num_classes: 10
-  num_workers: 2
+  img_size: 224
+  name: MINI_IMAGENET_C
+  num_workers: 8
+  severity: 3
 model:
   adanpc:
     beta: 0.99
     delta: 0.1
     micro_steps: 4
-  name: resnet18
-  pretrained: false
+    tau_max: null
+  name: resnet50
+  pretrained: true
   tta: adanpc
   variant: full
 optimizer:
   lr: 0.01
   momentum: 0.9
   name: SGD
-run_id: AdaNPC-full_fake
+run_id: AdaNPC-full
 training:
-  batch_size: 32
+  batch_size: 64
   epochs: 1

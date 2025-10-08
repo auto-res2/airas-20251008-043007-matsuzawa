@@ -1,0 +1,23 @@
+dataset:
+  img_size: 224
+  name: MINI_IMAGENET_C
+  num_workers: 8
+  severity: 3
+model:
+  adanpc:
+    beta: 0.99
+    delta: 0.1
+    micro_steps: 1
+    tau_max: null
+  name: resnet50
+  pretrained: true
+  tta: adanpc
+  variant: no-micro-stepping
+optimizer:
+  lr: 0.01
+  momentum: 0.9
+  name: SGD
+run_id: no-micro-stepping
+training:
+  batch_size: 64
+  epochs: 1

@@ -1,0 +1,18 @@
+{
+  "run_id": "SGD-adapter",
+  "final_train_loss": 2.564051915168762,
+  "final_train_acc": 0.375625,
+  "final_val_loss": 1.716613787651062,
+  "final_val_acc": 0.5225,
+  "best_val_acc": 0.5225,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 2.564051915168762,
+      "train_acc": 0.375625,
+      "val_loss": 1.716613787651062,
+      "val_acc": 0.5225
+    }
+  ]
+}

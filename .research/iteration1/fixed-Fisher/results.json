@@ -1,0 +1,18 @@
+{
+  "run_id": "fixed-Fisher",
+  "final_train_loss": 2.584444923400879,
+  "final_train_acc": 0.367875,
+  "final_val_loss": 1.7027258434295653,
+  "final_val_acc": 0.5355,
+  "best_val_acc": 0.5355,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 2.584444923400879,
+      "train_acc": 0.367875,
+      "val_loss": 1.7027258434295653,
+      "val_acc": 0.5355
+    }
+  ]
+}

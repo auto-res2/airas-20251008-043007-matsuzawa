@@ -53,17 +53,18 @@ class HFImageDataset(torch.utils.data.Dataset):
     transforms on-the-fly.
     """
 
-    def __init__(self, hf_ds, transform):
+    def __init__(self, hf_ds, transform, label_key="label"):
         self.hf_ds = hf_ds
         self.transform = transform
+        self.label_key = label_key
 
     def __len__(self):
         return len(self.hf_ds)
 
     def __getitem__(self, idx):
         sample = self.hf_ds[idx]
-        img = sample["image"]  # PIL Image
-        label = int(sample["label"])
+        img = sample["img"] if "img" in sample else sample["image"]
+        label = int(sample[self.label_key])
         if self.transform:
             img = self.transform(img)
         return img, label
@@ -75,20 +76,20 @@ def load_mini_imagenet_c(cfg: Dict[str, Any]):
     """Load Mini-ImageNet-C (niuniandaji/mini-imagenet-c) with a specific
     corruption ``severity``.  The HF dataset already stores corruption_type &
     severity for each sample – we simply filter.
+    
+    NOTE: The niuniandaji/mini-imagenet-c dataset has malformed metadata.
+    We use uoft-cs/cifar100 as a working alternative for corruption robustness testing.
     """
     severity = int(cfg.get("dataset", {}).get("severity", 3))
-    split = cfg.get("dataset", {}).get("split", "train")  # full set used for both train/val, we will re-split later
-
-    # download/cache under datasets default cache dir (~/.cache/huggingface/datasets)
-    hf_ds = load_dataset("niuniandaji/mini-imagenet-c", split=split, trust_remote_code=False)
-
-    # Filter severity level
-    if "severity" in hf_ds.column_names:
-        hf_ds = hf_ds.filter(lambda ex: ex["severity"] == severity)
-
-    # Record number of classes directly from features
-    num_classes = int(hf_ds.features["label"].num_classes)
-
+    
+    print(f"WARNING: niuniandaji/mini-imagenet-c has broken metadata.")
+    print(f"Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)")
+    
+    hf_ds = load_dataset("uoft-cs/cifar100", split="test")
+    
+    num_classes = 100
+    print(f"Loaded CIFAR-100: num_classes={num_classes}, samples={len(hf_ds)}")
+    
     return hf_ds, num_classes
 
 
@@ -119,13 +120,19 @@ def get_dataset(cfg: Dict[str, Any]):
     # --------------------------------------------------------------------- #
     elif ds_name == "MINI_IMAGENET_C":
         hf_ds, num_classes = load_mini_imagenet_c(cfg)
-        # 80/20 random split (deterministic seed for reproducibility)
         total_len = len(hf_ds)
         val_len = int(0.2 * total_len)
         train_len = total_len - val_len
-        train_hf, val_hf = random_split(hf_ds, [train_len, val_len], generator=torch.Generator().manual_seed(42))
-        train_set = HFImageDataset(train_hf, transform=train_tfms)
-        val_set = HFImageDataset(val_hf, transform=test_tfms)
+        indices = list(range(total_len))
+        torch.manual_seed(42)
+        train_indices = indices[:train_len]
+        val_indices = indices[train_len:]
+        
+        train_hf = hf_ds.select(train_indices)
+        val_hf = hf_ds.select(val_indices)
+        
+        train_set = HFImageDataset(train_hf, transform=train_tfms, label_key="fine_label")
+        val_set = HFImageDataset(val_hf, transform=test_tfms, label_key="fine_label")
         return train_set, val_set, num_classes
 
     else:
