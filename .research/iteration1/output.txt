@@ -26,3 +26,12 @@
 {"run_id": "proxtta_fake", "final_train_loss": 2.409358855216734, "final_train_acc": 0.11290322580645161, "final_val_loss": 2.3345062923431397, "final_val_acc": 0.135, "best_val_acc": 0.135, "epochs": 2, "epoch_metrics": [{"epoch": 1, "train_loss": 2.4522793677545365, "train_acc": 0.10987903225806452, "val_loss": 2.3715556144714354, "val_acc": 0.13}, {"epoch": 2, "train_loss": 2.409358855216734, "train_acc": 0.11290322580645161, "val_loss": 2.3345062923431397, "val_acc": 0.135}]}
 
 ===== Launching run: eata_fake =====
+=== [PHASE 1/2] Smoke test start Wed Oct  8 06:56:30 AM UTC 2025 ===
+===================== Experiment description =====================
+{
+  "goal": "Quick smoke test covering all TTA wrappers (Source, Tent, ProxTTA, EATA, AdaNPC).",
+  "dataset": "Torchvision FakeData (1000 train / 200 val)"
+}
+==================================================================
+
+===== Launching run: source_fake =====
