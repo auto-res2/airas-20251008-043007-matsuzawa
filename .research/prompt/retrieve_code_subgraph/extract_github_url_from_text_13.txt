@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+The proposed Robust Test-Time Adaptation (RoTTA) method consists of three key components: 1) Robust Batch Normalization (RBN): It replaces standard batch normalization by maintaining global statistics (mean and variance) updated through exponential moving average, using statistics from a memory bank, to normalize feature maps robustly against correlative test data. 2) Category-balanced sampling with timeliness and uncertainty (CSTU): A memory bank is maintained to capture a stable snapshot of the current distribution. Samples are added based on category balance, prioritizing newer (lower age) and less uncertain (lower prediction entropy) samples, guided by pseudo-labels from the teacher model. 3) Robust training with timeliness: A teacher-student model is employed. The student model's affine parameters in RBN layers are updated by minimizing a cross-entropy loss between strong-augmented student predictions and weak-augmented teacher predictions. A time-aware reweighting strategy, `E(Ai) = exp(−Ai/N) / (1 + exp(−Ai/N))`, is applied to the loss, giving higher weight to newer samples from the memory bank. The teacher model's parameters are updated via exponential moving average of the student's parameters.
+
+# GitHub URLs List
+['https://github.com/BIT-DA/RoTTA', 'https://github.com/fiveai/LAME', 'https://github.com/qinenergy/cotta']
+Output:
+{
+    "index": 0
+}
