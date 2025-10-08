@@ -1,18 +1,18 @@
 {
   "run_id": "no-safety-filter",
-  "final_train_loss": 2.564051915168762,
-  "final_train_acc": 0.375625,
+  "final_train_loss": 2.572647120475769,
+  "final_train_acc": 0.370875,
   "final_val_loss": NaN,
-  "final_val_acc": 0.0265,
-  "best_val_acc": 0.0265,
+  "final_val_acc": 0.0245,
+  "best_val_acc": 0.0245,
   "epochs": 1,
   "epoch_metrics": [
     {
       "epoch": 1,
-      "train_loss": 2.564051915168762,
-      "train_acc": 0.375625,
+      "train_loss": 2.572647120475769,
+      "train_acc": 0.370875,
       "val_loss": NaN,
-      "val_acc": 0.0265
+      "val_acc": 0.0245
     }
   ]
 }

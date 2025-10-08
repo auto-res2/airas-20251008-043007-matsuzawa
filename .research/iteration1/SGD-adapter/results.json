@@ -1,18 +1,18 @@
 {
   "run_id": "SGD-adapter",
-  "final_train_loss": 2.564051915168762,
-  "final_train_acc": 0.375625,
-  "final_val_loss": 1.716613787651062,
-  "final_val_acc": 0.5225,
-  "best_val_acc": 0.5225,
+  "final_train_loss": 2.564195601463318,
+  "final_train_acc": 0.375,
+  "final_val_loss": 1.6658158264160157,
+  "final_val_acc": 0.542,
+  "best_val_acc": 0.542,
   "epochs": 1,
   "epoch_metrics": [
     {
       "epoch": 1,
-      "train_loss": 2.564051915168762,
-      "train_acc": 0.375625,
-      "val_loss": 1.716613787651062,
-      "val_acc": 0.5225
+      "train_loss": 2.564195601463318,
+      "train_acc": 0.375,
+      "val_loss": 1.6658158264160157,
+      "val_acc": 0.542
     }
   ]
 }

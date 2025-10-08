@@ -1,4 +1,4 @@
-=== [PHASE 2/2] Full experiment start Wed Oct  8 03:20:24 PM UTC 2025 ===
+=== [PHASE 2/2] Full experiment start Wed Oct  8 05:48:21 PM UTC 2025 ===
 ===================== Experiment description =====================
 {
   "goal": "EXP-2 Ablation & Sensitivity Study on Mini-ImageNet-C (severity 3)",
@@ -11,31 +11,31 @@
 WARNING: niuniandaji/mini-imagenet-c has broken metadata.
 Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
 Loaded CIFAR-100: num_classes=100, samples=10000
-{"run_id": "AdaNPC-full", "final_train_loss": 2.584444923400879, "final_train_acc": 0.367875, "final_val_loss": 1.702725688934326, "final_val_acc": 0.5355, "best_val_acc": 0.5355, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.584444923400879, "train_acc": 0.367875, "val_loss": 1.702725688934326, "val_acc": 0.5355}]}
+{"run_id": "AdaNPC-full", "final_train_loss": 2.564051915168762, "final_train_acc": 0.375625, "final_val_loss": 1.716613787651062, "final_val_acc": 0.5225, "best_val_acc": 0.5225, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.564051915168762, "train_acc": 0.375625, "val_loss": 1.716613787651062, "val_acc": 0.5225}]}
 
 ===== Launching run: fixed-Fisher =====
 WARNING: niuniandaji/mini-imagenet-c has broken metadata.
 Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
 Loaded CIFAR-100: num_classes=100, samples=10000
-{"run_id": "fixed-Fisher", "final_train_loss": 2.584444923400879, "final_train_acc": 0.367875, "final_val_loss": 1.7027258434295653, "final_val_acc": 0.5355, "best_val_acc": 0.5355, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.584444923400879, "train_acc": 0.367875, "val_loss": 1.7027258434295653, "val_acc": 0.5355}]}
+{"run_id": "fixed-Fisher", "final_train_loss": 2.564051915168762, "final_train_acc": 0.375625, "final_val_loss": 1.716614315032959, "final_val_acc": 0.5225, "best_val_acc": 0.5225, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.564051915168762, "train_acc": 0.375625, "val_loss": 1.716614315032959, "val_acc": 0.5225}]}
 
 ===== Launching run: no-safety-filter =====
 WARNING: niuniandaji/mini-imagenet-c has broken metadata.
 Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
 Loaded CIFAR-100: num_classes=100, samples=10000
-{"run_id": "no-safety-filter", "final_train_loss": 2.564051915168762, "final_train_acc": 0.375625, "final_val_loss": NaN, "final_val_acc": 0.0265, "best_val_acc": 0.0265, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.564051915168762, "train_acc": 0.375625, "val_loss": NaN, "val_acc": 0.0265}]}
+{"run_id": "no-safety-filter", "final_train_loss": 2.572647120475769, "final_train_acc": 0.370875, "final_val_loss": NaN, "final_val_acc": 0.0245, "best_val_acc": 0.0245, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.572647120475769, "train_acc": 0.370875, "val_loss": NaN, "val_acc": 0.0245}]}
 
 ===== Launching run: no-micro-stepping =====
 WARNING: niuniandaji/mini-imagenet-c has broken metadata.
 Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
 Loaded CIFAR-100: num_classes=100, samples=10000
-{"run_id": "no-micro-stepping", "final_train_loss": 2.563602472305298, "final_train_acc": 0.377375, "final_val_loss": 1.780765908241272, "final_val_acc": 0.513, "best_val_acc": 0.513, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.563602472305298, "train_acc": 0.377375, "val_loss": 1.780765908241272, "val_acc": 0.513}]}
+{"run_id": "no-micro-stepping", "final_train_loss": 2.563602472305298, "final_train_acc": 0.377375, "final_val_loss": 1.7807660751342773, "final_val_acc": 0.513, "best_val_acc": 0.513, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.563602472305298, "train_acc": 0.377375, "val_loss": 1.7807660751342773, "val_acc": 0.513}]}
 
 ===== Launching run: SGD-adapter =====
 WARNING: niuniandaji/mini-imagenet-c has broken metadata.
 Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
 Loaded CIFAR-100: num_classes=100, samples=10000
-{"run_id": "SGD-adapter", "final_train_loss": 2.564051915168762, "final_train_acc": 0.375625, "final_val_loss": 1.716613787651062, "final_val_acc": 0.5225, "best_val_acc": 0.5225, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.564051915168762, "train_acc": 0.375625, "val_loss": 1.716613787651062, "val_acc": 0.5225}]}
+{"run_id": "SGD-adapter", "final_train_loss": 2.564195601463318, "final_train_acc": 0.375, "final_val_loss": 1.6658158264160157, "final_val_acc": 0.542, "best_val_acc": 0.542, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 2.564195601463318, "train_acc": 0.375, "val_loss": 1.6658158264160157, "val_acc": 0.542}]}
 
 ===== Running evaluation across all variations =====
 WARNING: niuniandaji/mini-imagenet-c has broken metadata.
@@ -53,5 +53,5 @@ Loaded CIFAR-100: num_classes=100, samples=10000
 WARNING: niuniandaji/mini-imagenet-c has broken metadata.
 Using alternative: uoft-cs/cifar100 (standard CIFAR-100 dataset)
 Loaded CIFAR-100: num_classes=100, samples=10000
-{"n_runs": 5, "figures": ["accuracy_curve.pdf", "accuracy_comparison.pdf", "confusion_fixed-Fisher.pdf", "confusion_no-micro-stepping.pdf", "confusion_AdaNPC-full.pdf", "confusion_SGD-adapter.pdf", "confusion_no-safety-filter.pdf"], "comparative_metrics": [{"run_id": "SGD-adapter", "best_val_acc": 0.5225, "final_val_acc": 0.5225}, {"run_id": "AdaNPC-full", "best_val_acc": 0.5355, "final_val_acc": 0.5355}, {"run_id": "no-micro-stepping", "best_val_acc": 0.513, "final_val_acc": 0.513}, {"run_id": "no-safety-filter", "best_val_acc": 0.0265, "final_val_acc": 0.0265}, {"run_id": "fixed-Fisher", "best_val_acc": 0.5355, "final_val_acc": 0.5355}]}
-=== [PHASE 2/2] Full experiment end Wed Oct  8 03:24:08 PM UTC 2025 ===
+{"n_runs": 5, "figures": ["accuracy_curve.pdf", "accuracy_comparison.pdf", "confusion_fixed-Fisher.pdf", "confusion_no-micro-stepping.pdf", "confusion_AdaNPC-full.pdf", "confusion_SGD-adapter.pdf", "confusion_no-safety-filter.pdf"], "comparative_metrics": [{"run_id": "SGD-adapter", "best_val_acc": 0.542, "final_val_acc": 0.542}, {"run_id": "AdaNPC-full", "best_val_acc": 0.5225, "final_val_acc": 0.5225}, {"run_id": "no-micro-stepping", "best_val_acc": 0.513, "final_val_acc": 0.513}, {"run_id": "no-safety-filter", "best_val_acc": 0.0245, "final_val_acc": 0.0245}, {"run_id": "fixed-Fisher", "best_val_acc": 0.5225, "final_val_acc": 0.5225}]}
+=== [PHASE 2/2] Full experiment end Wed Oct  8 05:52:08 PM UTC 2025 ===

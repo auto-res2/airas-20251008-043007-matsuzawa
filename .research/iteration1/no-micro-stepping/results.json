@@ -2,7 +2,7 @@
   "run_id": "no-micro-stepping",
   "final_train_loss": 2.563602472305298,
   "final_train_acc": 0.377375,
-  "final_val_loss": 1.780765908241272,
+  "final_val_loss": 1.7807660751342773,
   "final_val_acc": 0.513,
   "best_val_acc": 0.513,
   "epochs": 1,
@@ -11,7 +11,7 @@
       "epoch": 1,
       "train_loss": 2.563602472305298,
       "train_acc": 0.377375,
-      "val_loss": 1.780765908241272,
+      "val_loss": 1.7807660751342773,
       "val_acc": 0.513
     }
   ]
