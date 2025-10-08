@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+The proposed ATTA framework involves continuously selecting informative instances from test batches for labeling and subsequent model learning. A formal definition of ATTA is provided, optimizing a pre-trained model by minimizing a combination of cross-entropy loss (for labeled samples) and an unsupervised learning loss (for unlabeled samples), subject to a labeling budget. Theoretical analysis provides learning bounds to guarantee mitigation of distribution shifts and prevention of catastrophic forgetting (CF). The core algorithm, SimATTA, incorporates balanced sample selections using selective entropy minimization to combat CF (by identifying 'source-like' low-entropy samples) and an incremental clustering technique to select informative high-entropy samples (anchors) from streaming data for active labeling, reducing redundancy and increasing distribution coverage. The model is fine-tuned on these pseudo-labeled low-entropy samples and actively labeled high-entropy anchors.
+
+# GitHub URLs List
+['https://github.com/divelab/ATTA', 'https://github.com/DequanWang/tent', 'https://github.com/mr-eggplant/EATA', 'https://github.com/qinenergy/cotta', 'https://github.com/mr-eggplant/SAR', 'https://github.com/virajprabhu/CLUE']
+Output:
+{
+    "index": 0
+}
