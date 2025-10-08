@@ -1,0 +1,21 @@
+dataset:
+  img_size: 224
+  name: IMAGENETC
+  num_workers: 8
+model:
+  adanpc:
+    beta: 0.99
+    delta: 0.1
+    micro_steps: 4
+    tau_max: 0.5
+  name: vit_base_patch16_224
+  pretrained: true
+  tta: adanpc
+optimizer:
+  lr: 0.001
+  momentum: 0.9
+  name: SGD
+run_id: "AdaNPC-\u03C40.5"
+training:
+  batch_size: 32
+  epochs: 1

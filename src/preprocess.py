@@ -86,6 +86,9 @@ class HFDatasetWrapper(torch.utils.data.Dataset):
         sample = self.ds[idx]
         img = sample["image"]
         lbl = int(sample[self.label_key])
+        # Convert grayscale to RGB if needed
+        if img.mode != "RGB":
+            img = img.convert("RGB")
         if self.transform is not None:
             img = self.transform(img)
         return img, lbl
@@ -99,11 +102,10 @@ def _load_imagenetc(cfg: Dict[str, Any]):
     if load_dataset is None:
         raise RuntimeError("datasets library not available – cannot load ImageNet-C")
 
-    # Try alternative ImageNet-C datasets
+    # Try alternative ImageNet-C datasets (prefer smaller datasets first for manageable size)
     dataset_candidates = [
-        "yangzhou321/ImageNet1k_Corrupt",
-        "dingw/corrupt_ood_imagenet1k",
         "timm/mini-imagenet",
+        "yangzhou321/ImageNet1k_Corrupt",
     ]
     
     ds_dict = None

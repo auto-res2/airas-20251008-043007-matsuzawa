@@ -1,0 +1,18 @@
+{
+  "run_id": "AdaNPC-\u03c40.5",
+  "final_train_loss": 4.975875776342179,
+  "final_train_acc": 0.006121959026888604,
+  "final_val_loss": 4.986663204956055,
+  "final_val_acc": 0.0057,
+  "best_val_acc": 0.0057,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 4.975875776342179,
+      "train_acc": 0.006121959026888604,
+      "val_loss": 4.986663204956055,
+      "val_acc": 0.0057
+    }
+  ]
+}

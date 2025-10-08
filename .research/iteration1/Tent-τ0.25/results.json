@@ -1,0 +1,18 @@
+{
+  "run_id": "Tent-\u03c40.25",
+  "final_train_loss": 4.893430096849742,
+  "final_train_acc": 0.008422695262483995,
+  "final_val_loss": 4.904655348205567,
+  "final_val_acc": 0.0075,
+  "best_val_acc": 0.0075,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 4.893430096849742,
+      "train_acc": 0.008422695262483995,
+      "val_loss": 4.904655348205567,
+      "val_acc": 0.0075
+    }
+  ]
+}

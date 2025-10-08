@@ -1,0 +1,19 @@
+dataset:
+  img_size: 224
+  name: IMAGENETC
+  num_workers: 8
+model:
+  name: vit_base_patch16_224
+  pretrained: true
+  tent:
+    lr: 1e-3
+    tau_max: 0.25
+  tta: tent
+optimizer:
+  lr: 0.001
+  momentum: 0.9
+  name: SGD
+run_id: "Tent-\u03C40.25"
+training:
+  batch_size: 32
+  epochs: 1

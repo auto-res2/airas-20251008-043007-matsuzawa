@@ -1,4 +1,4 @@
-=== [PHASE 2/2] Full experiment start Wed Oct  8 12:49:00 PM UTC 2025 ===
+=== [PHASE 2/2] Full experiment start Wed Oct  8 07:06:03 PM UTC 2025 ===
 ===================== Experiment description =====================
 {
   "goal": "exp-3-robustness-latency \u2013 Evaluate AdaNPC\u2019s graceful degradation and robustness under real-time budgets on ImageNet-C using ViT-B/16.",
@@ -8,3 +8,20 @@
 ==================================================================
 
 ===== Launching run: source =====
+{"run_id": "source", "final_train_loss": 0.3878388785317101, "final_train_acc": 0.9036691741357235, "final_val_loss": 0.2670264285797253, "final_val_acc": 0.9249, "best_val_acc": 0.9249, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 0.3878388785317101, "train_acc": 0.9036691741357235, "val_loss": 0.2670264285797253, "val_acc": 0.9249}]}
+
+===== Launching run: Tent-τ0.25 =====
+{"run_id": "Tent-\u03c40.25", "final_train_loss": 4.893430096849742, "final_train_acc": 0.008422695262483995, "final_val_loss": 4.904655348205567, "final_val_acc": 0.0075, "best_val_acc": 0.0075, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 4.893430096849742, "train_acc": 0.008422695262483995, "val_loss": 4.904655348205567, "val_acc": 0.0075}]}
+
+===== Launching run: AdaNPC-τ1.0 =====
+{"run_id": "AdaNPC-\u03c41.0", "final_train_loss": 4.955287684246459, "final_train_acc": 0.004361395646606914, "final_val_loss": 4.959976124572754, "final_val_acc": 0.0038, "best_val_acc": 0.0038, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 4.955287684246459, "train_acc": 0.004361395646606914, "val_loss": 4.959976124572754, "val_acc": 0.0038}]}
+
+===== Launching run: AdaNPC-τ0.5 =====
+{"run_id": "AdaNPC-\u03c40.5", "final_train_loss": 4.975875776342179, "final_train_acc": 0.006121959026888604, "final_val_loss": 4.986663204956055, "final_val_acc": 0.0057, "best_val_acc": 0.0057, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 4.975875776342179, "train_acc": 0.006121959026888604, "val_loss": 4.986663204956055, "val_acc": 0.0057}]}
+
+===== Launching run: AdaNPC-τ0.25 =====
+{"run_id": "AdaNPC-\u03c40.25", "final_train_loss": 4.9338635824401305, "final_train_acc": 0.009282970550576185, "final_val_loss": 4.934707247161866, "final_val_acc": 0.0116, "best_val_acc": 0.0116, "epochs": 1, "epoch_metrics": [{"epoch": 1, "train_loss": 4.9338635824401305, "train_acc": 0.009282970550576185, "val_loss": 4.934707247161866, "val_acc": 0.0116}]}
+
+===== Running evaluation across all variations =====
+{"n_runs": 5, "figures": ["accuracy_curve.pdf", "accuracy_comparison.pdf", "confusion_AdaNPC-\u03c40.25.pdf", "confusion_AdaNPC-\u03c40.5.pdf", "confusion_AdaNPC-\u03c41.0.pdf", "confusion_source.pdf", "confusion_Tent-\u03c40.25.pdf"], "comparative_metrics": [{"run_id": "Tent-\u03c40.25", "best_val_acc": 0.0075, "final_val_acc": 0.0075}, {"run_id": "AdaNPC-\u03c41.0", "best_val_acc": 0.0038, "final_val_acc": 0.0038}, {"run_id": "AdaNPC-\u03c40.25", "best_val_acc": 0.0116, "final_val_acc": 0.0116}, {"run_id": "source", "best_val_acc": 0.9249, "final_val_acc": 0.9249}, {"run_id": "AdaNPC-\u03c40.5", "best_val_acc": 0.0057, "final_val_acc": 0.0057}]}
+=== [PHASE 2/2] Full experiment end Wed Oct  8 07:18:30 PM UTC 2025 ===

@@ -1,0 +1,18 @@
+{
+  "run_id": "source",
+  "final_train_loss": 0.3878388785317101,
+  "final_train_acc": 0.9036691741357235,
+  "final_val_loss": 0.2670264285797253,
+  "final_val_acc": 0.9249,
+  "best_val_acc": 0.9249,
+  "epochs": 1,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 0.3878388785317101,
+      "train_acc": 0.9036691741357235,
+      "val_loss": 0.2670264285797253,
+      "val_acc": 0.9249
+    }
+  ]
+}
