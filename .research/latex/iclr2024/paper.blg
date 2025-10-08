@@ -1,0 +1,58 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: paper.aux
+The style file: iclr2024_conference.bst
+Database file #1: references.bib
+Warning--empty journal in aitchison-2018-bayesian
+Warning--empty journal in alfarra-2023-evaluation
+Warning--empty journal in goyal-2022-test
+Warning--empty journal in hoang-2023-persistent
+Warning--empty journal in lim-2023-ttn
+Warning--empty journal in niu-2023-towards
+Warning--empty journal in song-2023-ecotta
+Warning--empty journal in sun-2019-test
+Warning--empty journal in wang-2020-tent
+Warning--empty journal in yuan-2023-robust
+Warning--empty journal in zhao-2023-delta
+You've used 12 entries,
+            2773 wiz_defined-function locations,
+            637 strings with 6740 characters,
+and the built_in function-call counts, 5962 in all, are:
+= -- 455
+> -- 538
+< -- 1
++ -- 180
+- -- 168
+* -- 523
+:= -- 979
+add.period$ -- 36
+call.type$ -- 12
+change.case$ -- 92
+chr.to.int$ -- 12
+cite$ -- 35
+duplicate$ -- 235
+empty$ -- 374
+format.name$ -- 180
+if$ -- 1176
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 11
+newline$ -- 68
+num.names$ -- 48
+pop$ -- 210
+preamble$ -- 1
+purify$ -- 80
+quote$ -- 0
+skip$ -- 202
+stack$ -- 0
+substring$ -- 24
+swap$ -- 1
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 132
+warning$ -- 11
+while$ -- 36
+width$ -- 0
+write$ -- 140
+(There were 11 warnings)
