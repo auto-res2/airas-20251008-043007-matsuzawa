@@ -1,0 +1,20 @@
+dataset:
+  img_size: 64
+  name: FAKEDATA
+  num_classes: 10
+  num_workers: 2
+model:
+  name: resnet18
+  pretrained: false
+  tent:
+    lr: 0.001
+    momentum: 0.9
+  tta: tent
+optimizer:
+  lr: 0.01
+  momentum: 0.9
+  name: SGD
+run_id: tent_fake
+training:
+  batch_size: 32
+  epochs: 2

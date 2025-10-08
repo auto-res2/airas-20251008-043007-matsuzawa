@@ -1,0 +1,25 @@
+{
+  "run_id": "source_fake",
+  "final_train_loss": 2.1285196119739163,
+  "final_train_acc": 0.29939516129032256,
+  "final_val_loss": 2.587332344055176,
+  "final_val_acc": 0.225,
+  "best_val_acc": 0.225,
+  "epochs": 2,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 2.5907390963646675,
+      "train_acc": 0.10383064516129033,
+      "val_loss": 3.0476888465881347,
+      "val_acc": 0.175
+    },
+    {
+      "epoch": 2,
+      "train_loss": 2.1285196119739163,
+      "train_acc": 0.29939516129032256,
+      "val_loss": 2.587332344055176,
+      "val_acc": 0.225
+    }
+  ]
+}

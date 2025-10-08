@@ -1,0 +1,25 @@
+{
+  "run_id": "tent_fake",
+  "final_train_loss": 2.41478999968498,
+  "final_train_acc": 0.1310483870967742,
+  "final_val_loss": 2.4066640663146974,
+  "final_val_acc": 0.13,
+  "best_val_acc": 0.13,
+  "epochs": 2,
+  "epoch_metrics": [
+    {
+      "epoch": 1,
+      "train_loss": 2.4587894562752015,
+      "train_acc": 0.11189516129032258,
+      "val_loss": 2.4420634365081786,
+      "val_acc": 0.115
+    },
+    {
+      "epoch": 2,
+      "train_loss": 2.41478999968498,
+      "train_acc": 0.1310483870967742,
+      "val_loss": 2.4066640663146974,
+      "val_acc": 0.13
+    }
+  ]
+}
