@@ -1,0 +1,672 @@
+
+Input:
+You are a cutting-edge AI researcher generating complete, executable code for research paper experiments.
+
+**Previous Step (Completed)**: Common base logic and evaluation framework have been generated with placeholders
+**Current Task**: Generate production-ready code by completing all placeholders with actual implementations.
+
+Your task is to take the common base foundation code and derive specific experimental variations by replacing ALL placeholders with complete, working implementations of datasets, models, and configurations specified in the experimental design. The resulting code must be immediately executable without any further modifications.
+
+# Instructions: Experiment Specialization
+
+## Core Task
+- CONFIGURE ALL EXPERIMENTS: The primary task is to populate YAML file with a complete list of configurations for all run variations (baseline, proposed, ablations).
+- REPLACE ALL PLACEHOLDERS: Replace all placeholders in the common base code with actual, complete implementations. No TODO, PLACEHOLDER, pass, or ... are allowed.
+- IMPLEMENT MODELS FROM SCRATCH: YOU must implement all model architectures corresponding to the variations defined in the YAML file within `src/model.py`. Do NOT leave comments like "inject actual model here" or "use pretrained model".
+- COMPLETE DATA PIPELINE: Implement the specific data loading and preprocessing logic in `src/preprocess.py`.
+- PRODUCTION READY: The generated code must be immediately executable for research paper experiments without any further modifications. No external model files or additional implementation steps should be required.
+
+## Specialization Requirements
+- Complete `config/full_experiment.yaml`: This file is the driver of the entire experiment. Define each run variation (['source', 'Tent', 'ProxTTA', 'EATA', 'AdaNPC-full']) as a separate item in the `runs` list, specifying its unique id, model name, and parameters.
+- Complete `config/smoke_test.yaml`: Define lightweight versions of ALL run variations from full_experiment.yaml with reduced epochs/data to quickly validate pipeline integrity.
+- Implement all required model architectures in `src/model.py`. The model names in the YAML must correspond to the model registry.
+- Replace dataset placeholders with actual Hugging Face dataset loading and preprocessing
+- Replace model placeholders with specific model architectures for each variation
+- Ensure all external resources specified in the experimental design are properly integrated
+
+## Complete Output Policy
+- If a script/file has ANY changes: Output the COMPLETE, FULL script/file content
+- If a script/file has NO changes needed: Output `[UNCHANGED]` placeholder only
+- NEVER truncate or abbreviate changed content
+
+
+# Experimental Environment
+NVIDIA A100
+VRAM：80GB
+RAM：2048 GB
+
+# Current Research Method
+{
+    "Open Problems": "1. (Scope) Closed–form proximal updates in ProxTTA are limited to frozen Σ taken from the source domain. In practice, the Hessian/Fisher of the test distribution may drift, making the pre-conditioner sub-optimal or even harmful when the shift is large or non-stationary.\n2. (Expressiveness) Restricting adaptation to BN affine parameters fails when the source model uses other normalisers (LN, GN, RMSNorm) or when shifts mainly affect early convolutional filters or input statistics.\n3. (Safety) Even per-parameter trust-region steps can overshoot on extremely hard samples; a cheap on-line certificate of improvement is missing.\n4. (Latency) Skipping whole batches when the time budget is tight wastes potentially useful statistics; we need finer control that degrades gracefully instead of all-or-nothing.",
+    "Methods": "We propose AdaNPC – Adaptive Natural-gradient & Probabilistically-Certified Test-time Adaptation.\n\nKey pieces:\nA. Streaming Fisher approximation  Σ̂_t  \na) maintain an exponential moving average of squared gradients g_t ⊙ g_t.  Σ̂_t = β Σ̂_{t-1}+(1-β)(g_t^2+ϵ) (diagonal)  (β=0.99).\nThis tracks curvature of the *current* test stream with O(|θ|) memory and ≤2 Hadamard ops.\n\nB. One-shot natural update  θ_{t+1}=θ_t−η Σ̂_t^{-1/2} g_t  with fixed η=1.  Scaling by Σ̂_t^{-1/2} (RMSprop view) keeps units stable; no learning-rate tuning.\n\nC. Probabilistic safety filter  Using Bernstein’s inequality we bound the change in entropy ΔL. We accept the update only if P(ΔL>0)≤δ (δ=0.1). Cost: one inner-product and pre-computed variance proxy.\n\nD. Normaliser-agnostic adaptors  Collect affine parameters of all normalisation layers (BN, LN, GN, RMSNorm) plus optional input colour-bias vector (3 extra params). Same code path, still O(|θ|).\n\nE. Micro-stepping scheduler  Instead of skipping batches, if wall-clock τ_t>τ_max we halve the micro-step count k (default k=4) so each batch gets a partial update using  θ_{t+1}=θ_t−(η/k) Σ̂_t^{-1/2} g_t repeated k_iter times or until budget met. Guarantees monotone accuracy-vs-time trade-off.\n\nAll hyper-parameters (β, δ, τ_max) have intuitive meanings and are insensitive; none depend on the model or dataset.",
+    "Experimental Setup": "Code base: extend official Tent repo.\n\nModels & datasets: • ResNet-50-BN on ImageNet-C. • ViT-B/16-LN on ImageNet-C. • ResNet-18-GN on CIFAR-10-C. Streams: Realistic protocol with η∈{1,1/2,1/4}. Recurring PTTA Dirichlet δ=0.1.\n\nBaselines: Source, Tent, ProxTTA, EATA, RoTTA, CoTTA, Shrink-Tent.\n\nMetrics: 1) Online top-1 error under time penalty. 2) Time-to-90%-of-Tent accuracy. 3) Ratio of safe-filter rejections (<5% desired). 4) Extra memory (should <0.3 MB for R-50).",
+    "Experimental Code": "class AdaNPC(Tent):\n    def __init__(self, model, beta=0.99, delta=0.1, tau_max=None):\n        super().__init__(model, torch.optim.SGD([],lr=1))\n        self.var = None            # Σ̂_t diagonal\n        self.beta=beta; self.delta=delta\n        self.tau_max=tau_max; self.k=4  # micro-steps\n        self.timer_ema=None\n    @torch.enable_grad()\n    def forward_and_adapt(self,x,model,opt):\n        t0=time.time()\n        y=model(x); loss=softmax_entropy(y).mean()\n        g=torch.autograd.grad(loss,self.params,create_graph=False)[0]\n        if self.var is None: self.var=g.pow(2)\n        else: self.var=self.beta*self.var+(1-self.beta)*g.pow(2)+1e-8\n        step=(g/self.var.sqrt())            # Σ̂^{-1/2}g\n        # safety: accept only if predicted ΔL negative with high prob\n        deltaL=(step*g).sum()              # first-order change\n        varL=((step.pow(2)*self.var).sum()).sqrt()\n        safe=(deltaL+varL*math.sqrt(2*math.log(1/self.delta)))<0\n        if safe:\n            k=max(1,self.k)\n            eta=1.0/k\n            for _ in range(k):\n                for p,s in zip(self.params,step): p-=eta*s\n        self.timer_ema=0.8*(self.timer_ema or 0)+0.2*(time.time()-t0)\n        if self.tau_max and self.timer_ema>self.tau_max and self.k>1:\n            self.k//=2     # micro-step back-off\n        model.zero_grad(); return model(x)",
+    "Expected Result": "• AdaNPC matches Tent’s final accuracy after only 0.5 epochs of data (≈30% fewer samples) and beats ProxTTA by 1-2 pp on ImageNet-C.\n• Under η=1/4 it retains 93% of its full-speed accuracy, versus 75% for Tent and 88% for ProxTTA.\n• Safety filter rejects <3% of batches yet prevents all observed divergences on extreme corruptions (snow, impulse_noise).\n• Overhead: +|θ| vector and var buffer (0.25 MB for R-50), <5% extra FLOPs.",
+    "Expected Conclusion": "AdaNPC turns TTA into a fast, normaliser-agnostic, and self-certified one-step natural-gradient procedure. By tracking curvature online it eliminates source-bias of fixed Fisher, while the probabilistic filter delivers theoretical safety guarantees. Fine-grained micro-stepping makes adaptation speed smoothly adjustable to real-time constraints. The method thus advances both the practical deployability and the theoretical grounding of rapid test-time adaptation."
+}
+
+# Experimental Design
+- Strategy: Overall Goal:
+Demonstrate that AdaNPC delivers (1) higher on-line performance, (2) better computational efficiency, (3) stronger robustness/safety and (4) wider architectural generalization than existing Test-Time Adaptation (TTA) techniques.
+
+1. Validation Axes
+   a. Performance Improvement – on-line accuracy/error under various distribution shifts.
+   b. Efficiency – wall-clock latency, extra FLOPs, extra memory, and sample-efficiency (# test samples required to reach a target accuracy).
+   c. Robustness & Safety – stability on extreme or non-stationary shifts; frequency of divergence and of safety-filter rejections; guarantee that accuracy never drops below the frozen source model.
+   d. Generalization – effectiveness across architectures (BN, LN, GN, RMSNorm), data domains, and shift types (corruption intensity, temporal drift, sudden swaps).
+   e. Graceful Degradation – accuracy–vs–time trade-off controlled by micro-stepping.
+
+2. Required Comparisons
+   • Strong baselines: Source (no TTA), Tent, ProxTTA, EATA, CoTTA, RoTTA, Shrink-Tent, and any contemporaneous state-of-the-art published before the submission deadline.
+   • Internal ablations: (i) remove streaming Fisher (fall back to fixed Σ), (ii) remove probabilistic safety filter, (iii) remove micro-stepping, (iv) adapt BN only, (v) replace natural gradient with SGD; (vi) combine two removals to test interaction effects.
+   • Sensitivity studies: vary β, δ, micro-step budget, and η to show hyper-parameter robustness.
+
+3. Experimental Angles / Evidence Modalities
+   A. Quantitative
+      • Main metric: on-line top-1 error averaged over the whole stream.
+      • Secondary: (i) area under the adaptation curve (AUC), (ii) time-to-X%-of-Tent accuracy, (iii) catastrophic failure rate (runs where error > source), (iv) % batches rejected by safety filter, (v) compute & memory overhead, (vi) energy proxy via NVIDIA-SMI.
+      • Statistical treatment: 3 independent runs × 3 random seeds; report mean ± 95% CI; paired t-tests against best baseline.
+   B. Qualitative / Diagnostic
+      • Fisher drift plots (cosine similarity between Σ̂_t and source Σ_0).
+      • Histograms of predicted ΔL vs empirical ΔL, highlighting safety bound tightness.
+      • Accuracy–vs–latency curves when throttling τ_max.
+      • Heat-map of component ablations across corruption severity.
+
+4. Multi-Perspective Demonstration Plan
+   • Orthogonal matrix: {Architectures} × {Datasets} × {Shift protocols}. Each cell runs the full comparison suite to show broad applicability.
+   • Stress tests: (i) worst-case corruptions, (ii) synthetic non-stationary drift generated on-the-fly, (iii) adversarially sorted hard batches.
+   • Real-time constraint scenario: enforce τ_max values (full, ½, ¼ of GPU budget) to showcase graceful degradation.
+   • Safety spotlight: run 10×-long streams; count divergences; compare cumulative worst-case error to baselines.
+
+5. Success Criteria (must hold on ≥80% of cells)
+   • Accuracy: AdaNPC improves mean AUC by ≥2 pp over the best competing method with p<0.05.
+   • Efficiency: <5% extra FLOPs, <0.5% extra VRAM, and reaches Tent’s final accuracy using ≥25% fewer test samples.
+   • Robustness: zero catastrophic failures; safety filter rejection rate ≤5%.
+   • Generalization: retains ≥90% of its ImageNet-C gain when ported to each other architecture/dataset without tuning.
+   • Graceful degradation: under the strictest τ_max, retains ≥90% of its own full-speed accuracy while Tent drops below 80%.
+
+6. Practical Considerations
+   • All experiments run on one NVIDIA A100 (80 GB) node; resource accounting recorded via NVTX markers and pytorch profiler.
+   • Unified codebase: start from official Tent repo, add modular hooks so baselines and AdaNPC share identical data loading, augmentation, synchronisation and precision settings.
+   • Hyper-parameter policy: AdaNPC fixed defaults; baselines get per-dataset grid search as reported in their papers to avoid under-tuning claims.
+   • Reproducibility: release seeds, config files, and slurm scripts; adherence to ML-Reproducibility Checklist.
+
+This strategy provides a consistent, multi-faceted evaluation framework that will be reused verbatim in all subsequent experiments, ensuring that every study collectively builds a compelling, well-substantiated case for the effectiveness of AdaNPC.
+
+# Current Experiment (to generate code for)
+- Experiment ID: exp-1-main-performance
+- Description: Objective / Hypothesis:
+Demonstrate that AdaNPC consistently surpasses the strongest prior TTA methods in on-line accuracy while staying within a 5 % compute overhead budget across architectures that rely on BN, LN and GN.
+
+Models:
+• ResNet-50 (BN) pre-trained on ImageNet-1K.
+• ViT-B/16 (LN) pre-trained with supervised ImageNet-1K.
+• ResNet-18 (GN) pre-trained on CIFAR-10.
+
+Datasets & Shifts:
+• ImageNet-C (15 corruption types × 5 severities).
+• CIFAR-10-C (same corruption taxonomy).
+
+Pre-processing:
+• ImageNet: resize ⇢ 256, center-crop 224×224, per-channel mean / std.
+• CIFAR-10: 32×32, per-channel mean / std.
+No additional augmentation during test streams.
+
+Data Splitting & Streaming Protocol:
+Whole corrupted test set is consumed once, sequentially, as an on-line stream (≈50 k samples for ImageNet-C, 10 k for CIFAR-10-C). 3 independent random orders per seed (3 seeds → 9 runs / model).
+
+Evaluation Metrics:
+Primary – on-line top-1 error (lower=better).
+Secondary – AUC of error curve, time-to-90 %-of-Tent accuracy, extra FLOPs (%), extra VRAM (%), sample-efficiency (# samples to reach Tent’s final accuracy).
+
+Repetitions & Statistics:
+3 seeds × 3 shuffles. Report mean ± 95 % CI, paired t-test w.r.t. best competing baseline.
+
+Comparisons:
+run_variations list; baselines use authors’ recommended hyper-parameters. AdaNPC uses fixed defaults (β = 0.99, δ = 0.1, k = 4).
+
+Hyper-parameter analysis (within this experiment):
+A small sweep on η ∈{1,½,¼} for AdaNPC to confirm insensitivity; reported in appendix.
+
+Robustness checks:
+Corruption-specific break-down tables; catastrophic failure count (error > source).
+
+Compute Efficiency:
+PyTorch profiler + NVTX. Measured: forward + adaptation FLOPs, wall-clock per sample, peak GPU-mem.
+
+Example Code Snippet:
+```python
+from adapttta import load_model, StreamLoader, evaluate
+model = load_model('resnet50_bn_imagenet')
+stream = StreamLoader('imagenet_c', batch=64, shuffle=True, seed=seed)
+engine = AdaNPC(model) if variant=='AdaNPC-full' else load_baseline(variant)
+error_curve, flops, mem = evaluate(engine, stream)
+```
+- Run Variations: ['source', 'Tent', 'ProxTTA', 'EATA', 'AdaNPC-full']
+
+# Base Code
+{'train_py': '"""src/train.py\nConducts a single experiment run as specified by an *individual* run-variation\nconfiguration (YAML) that already lives inside <results_dir>/<run_id>/run_config.yaml\n\nThe script is **dataset / model agnostic** – all dataset-specific logic lives in\nsrc/preprocess.get_dataloaders and model definitions are pulled from\nsrc.model.get_model according to the config.  Therefore this file NEVER\ncontains placeholders.\n"""\nfrom __future__ import annotations\nimport argparse, json, os, sys, time, pathlib\nfrom typing import Dict, Any\n\nimport torch, torch.nn as nn\nfrom torch.optim import SGD, AdamW\nfrom torch.utils.data import DataLoader\nfrom torch.cuda.amp import autocast, GradScaler\n\nfrom tqdm import tqdm\nimport yaml\n\nfrom .preprocess import get_dataloaders\nfrom .model import get_model\n\n\n# ------------------------------- helpers ------------------------------------ #\n\ndef accuracy(pred: torch.Tensor, target: torch.Tensor) -> float:\n    """Top-1 accuracy."""\n    with torch.no_grad():\n        pred_classes = pred.argmax(1)\n        correct = (pred_classes == target).sum().item()\n    return correct / target.size(0)\n\n\ndef save_json(path: os.PathLike, obj: Dict[str, Any]):\n    path = pathlib.Path(path)\n    with path.open("w") as f:\n        json.dump(obj, f, indent=2)\n\n\n# ------------------------------- main train --------------------------------- #\n\ndef run(cfg: Dict[str, Any], results_dir: str):\n    torch.backends.cudnn.benchmark = True  # speed-up for fixed input size\n\n    run_id: str = cfg["run_id"]\n    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")\n\n    ###########################################################################\n    # 1.  Data\n    ###########################################################################\n    train_loader, val_loader, num_classes = get_dataloaders(cfg)\n\n    ###########################################################################\n    # 2.  Model & Optimiser\n    ###########################################################################\n    model = get_model(cfg, num_classes=num_classes).to(device)\n    criterion = nn.CrossEntropyLoss().to(device)\n\n    optim_cfg = cfg.get("optimizer", {"name": "SGD", "lr": 0.01, "momentum": 0.9})\n    if optim_cfg["name"].lower() == "sgd":\n        optimizer = SGD(model.parameters(), lr=optim_cfg["lr"], momentum=optim_cfg.get("momentum", 0))\n    elif optim_cfg["name"].lower() == "adamw":\n        optimizer = AdamW(model.parameters(), lr=optim_cfg["lr"], weight_decay=optim_cfg.get("weight_decay", 1e-2))\n    else:\n        raise ValueError(f"Unsupported optimizer: {optim_cfg[\'name\']}")\n\n    scaler = GradScaler(enabled=cfg.get("mixed_precision", True) and device.type == "cuda")\n\n    ###########################################################################\n    # 3.  Training loop\n    ###########################################################################\n    epochs = cfg.get("training", {}).get("epochs", 10)\n    log_every = max(1, len(train_loader) // 10)\n\n    epoch_metrics = []\n    best_val_acc = -1\n    best_ckpt_path = os.path.join(results_dir, run_id, "model_best.pth")\n\n    for epoch in range(epochs):\n        model.train()\n        running_loss, running_acc, n_samples = 0.0, 0.0, 0\n        pbar = tqdm(train_loader, desc=f"[{run_id}] Train Epoch {epoch+1}/{epochs}", leave=False)\n        for i, (x, y) in enumerate(pbar):\n            x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)\n            optimizer.zero_grad(set_to_none=True)\n            with autocast(enabled=scaler.is_enabled()):\n                logits = model(x)\n                loss = criterion(logits, y)\n            scaler.scale(loss).backward()\n            scaler.step(optimizer)\n            scaler.update()\n\n            batch_acc = accuracy(logits.detach(), y)\n            batch_size = y.size(0)\n            running_loss += loss.item() * batch_size\n            running_acc += batch_acc * batch_size\n            n_samples += batch_size\n\n            if (i + 1) % log_every == 0:\n                pbar.set_postfix({"loss": running_loss / n_samples, "acc": running_acc / n_samples})\n\n        train_loss = running_loss / n_samples\n        train_acc = running_acc / n_samples\n\n        # ---------------------- validation ---------------------------------- #\n        model.eval()\n        val_loss, val_acc, n_val = 0.0, 0.0, 0\n        with torch.no_grad():\n            for x, y in val_loader:\n                x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)\n                logits = model(x)\n                loss = criterion(logits, y)\n                batch_acc = accuracy(logits, y)\n\n                val_loss += loss.item() * y.size(0)\n                val_acc += batch_acc * y.size(0)\n                n_val += y.size(0)\n        val_loss /= n_val\n        val_acc /= n_val\n\n        epoch_metrics.append({\n            "epoch": epoch + 1,\n            "train_loss": train_loss,\n            "train_acc": train_acc,\n            "val_loss": val_loss,\n            "val_acc": val_acc,\n        })\n\n        # ---------------------- checkpointing ------------------------------- #\n        if val_acc > best_val_acc:\n            best_val_acc = val_acc\n            torch.save({\n                "model_state": model.state_dict(),\n                "cfg": cfg,\n                "epoch": epoch + 1,\n                "val_acc": val_acc,\n            }, best_ckpt_path)\n\n    ###########################################################################\n    # 4.  Save artefacts & log final metrics\n    ###########################################################################\n    final_metrics = {\n        "run_id": run_id,\n        "final_train_loss": epoch_metrics[-1]["train_loss"],\n        "final_train_acc": epoch_metrics[-1]["train_acc"],\n        "final_val_loss": epoch_metrics[-1]["val_loss"],\n        "final_val_acc": epoch_metrics[-1]["val_acc"],\n        "best_val_acc": best_val_acc,\n        "epochs": epochs,\n        "epoch_metrics": epoch_metrics,\n    }\n\n    # last checkpoint (overwrite each run)\n    last_ckpt_path = os.path.join(results_dir, run_id, "model_last.pth")\n    torch.save({\n        "model_state": model.state_dict(),\n        "cfg": cfg,\n        "epoch": epochs,\n        "val_acc": epoch_metrics[-1]["val_acc"],\n    }, last_ckpt_path)\n\n    # save json   \n    save_json(os.path.join(results_dir, run_id, "results.json"), final_metrics)\n\n    # provide machine-readable output on stdout\n    print(json.dumps(final_metrics))\n\n\n# --------------------------------------------------------------------------- #\n\ndef parse_args():\n    p = argparse.ArgumentParser()\n    p.add_argument("--config", required=True, help="Path to run-specific YAML config file")\n    p.add_argument("--results-dir", required=True, help="Root results directory for this whole experiment set")\n    return p.parse_args()\n\n\nif __name__ == "__main__":\n    args = parse_args()\n    cfg = yaml.safe_load(open(args.config))\n    run(cfg, args.results_dir)\n', 'evaluate_py': '"""src/evaluate.py\nAggregates results from all run-variation sub-directories under\n<results_dir> and creates comparative figures + JSON summary.\nIt also demonstrates *model loading* by re-evaluating each saved model on\nits validation split (sanity check / reproducibility guard).\n"""\nfrom __future__ import annotations\nimport argparse, json, os, pathlib\nfrom typing import Dict, List\nimport yaml\n\nimport torch\nimport seaborn as sns\nimport matplotlib.pyplot as plt\nimport pandas as pd\nfrom sklearn.metrics import confusion_matrix\nfrom tqdm import tqdm\n\nfrom .preprocess import get_dataloaders\nfrom .model import get_model\n\nplt.switch_backend("Agg")  # headless environments\n\n# ------------------------------ helpers ------------------------------------ #\n\ndef load_results_json(path: os.PathLike) -> Dict:\n    with open(path, "r") as f:\n        return json.load(f)\n\n\ndef ensure_dir(d: os.PathLike):\n    pathlib.Path(d).mkdir(parents=True, exist_ok=True)\n\n\n# ------------------------------ evaluation ----------------------------------#\n\ndef create_lineplot(df: pd.DataFrame, results_dir: str):\n    img_dir = os.path.join(results_dir, "images")\n    ensure_dir(img_dir)\n\n    plt.figure(figsize=(6, 4))\n    for run_id, g in df.groupby("run_id"):\n        plt.plot(g["epoch"], g["val_acc"], label=run_id)\n        # annotate final value\n        last_row = g.iloc[-1]\n        plt.annotate(f"{last_row[\'val_acc\']:.3f}",\n                     (last_row["epoch"], last_row["val_acc"]),\n                     textcoords="offset points", xytext=(0, 5), ha="center")\n\n    plt.xlabel("Epoch")\n    plt.ylabel("Validation Accuracy")\n    plt.title("Validation Accuracy vs Epoch")\n    plt.legend()\n    plt.tight_layout()\n    fname = os.path.join(img_dir, "accuracy_curve.pdf")\n    plt.savefig(fname, bbox_inches="tight")\n    plt.close()\n\n    return fname\n\n\ndef create_barplot(summary: pd.DataFrame, results_dir: str):\n    img_dir = os.path.join(results_dir, "images")\n    ensure_dir(img_dir)\n\n    plt.figure(figsize=(6, 4))\n    ax = sns.barplot(data=summary, x="run_id", y="best_val_acc")\n    for p, acc in zip(ax.patches, summary["best_val_acc"]):\n        height = p.get_height()\n        ax.annotate(f"{acc:.3f}",\n                    (p.get_x() + p.get_width() / 2., height),\n                    ha=\'center\', va=\'bottom\', fontsize=9)\n    plt.ylabel("Best Validation Accuracy")\n    plt.xlabel("Run ID")\n    plt.title("Best Validation Accuracy Across Runs")\n    plt.xticks(rotation=45, ha="right")\n    plt.tight_layout()\n    fname = os.path.join(img_dir, "accuracy_comparison.pdf")\n    plt.savefig(fname, bbox_inches="tight")\n    plt.close()\n    return fname\n\n\ndef recompute_confusion(run_dir: str, cfg: Dict, device: torch.device):\n    """Load saved *best* model and compute confusion matrix on val set."""\n    ckpt_path = os.path.join(run_dir, "model_best.pth")\n    if not os.path.exists(ckpt_path):\n        return None  # skip if missing (should not happen)\n\n    # Rebuild dataloader to guarantee same split\n    _, val_loader, num_classes = get_dataloaders(cfg, seed=42)  # deterministic\n    model = get_model(cfg, num_classes=num_classes)\n    state = torch.load(ckpt_path, map_location=device)\n    model.load_state_dict(state["model_state"], strict=True)\n    model.to(device).eval()\n\n    all_preds, all_labels = [], []\n    with torch.no_grad():\n        for x, y in val_loader:\n            x = x.to(device, non_blocking=True)\n            logits = model(x)\n            preds = logits.argmax(1).cpu()\n            all_preds.append(preds)\n            all_labels.append(y)\n    all_preds = torch.cat(all_preds).numpy()\n    all_labels = torch.cat(all_labels).numpy()\n\n    cm = confusion_matrix(all_labels, all_preds)\n    return cm\n\n\ndef plot_confusion(cm, run_id: str, results_dir: str):\n    img_dir = os.path.join(results_dir, "images")\n    ensure_dir(img_dir)\n    plt.figure(figsize=(5, 4))\n    sns.heatmap(cm, annot=False, cmap="Blues", cbar=True)\n    plt.title(f"Confusion Matrix – {run_id}")\n    plt.xlabel("Predicted")\n    plt.ylabel("True")\n    plt.tight_layout()\n    fname = os.path.join(img_dir, f"confusion_{run_id}.pdf")\n    plt.savefig(fname, bbox_inches="tight")\n    plt.close()\n    return fname\n\n\n# --------------------------------------------------------------------------- #\n\ndef run(results_dir: str):\n    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")\n\n    run_dirs = [d for d in pathlib.Path(results_dir).iterdir() if d.is_dir()]\n    if not run_dirs:\n        raise RuntimeError(f"No run sub-directories found under {results_dir}")\n\n    # -------------------------- aggregate metrics --------------------------- #\n    per_epoch_records: List[Dict] = []\n    summary_records: List[Dict] = []\n\n    for rd in run_dirs:\n        res_path = rd / "results.json"\n        if not res_path.exists():\n            print(f"Warning: results.json missing for {rd.name} – skipping")\n            continue\n        res = load_results_json(res_path)\n        for em in res["epoch_metrics"]:\n            per_epoch_records.append({**em, "run_id": res["run_id"]})\n        summary_records.append({\n            "run_id": res["run_id"],\n            "best_val_acc": res["best_val_acc"],\n            "final_val_acc": res["final_val_acc"],\n        })\n\n        # ------------------ recompute confusion matrix ---------------------- #\n        cfg_path = rd / "run_config.yaml"\n        cfg = yaml.safe_load(open(cfg_path))\n        cm = recompute_confusion(str(rd), cfg, device)\n        if cm is not None:\n            plot_confusion(cm, res["run_id"], results_dir)\n\n    df_epoch = pd.DataFrame(per_epoch_records)\n    df_summary = pd.DataFrame(summary_records)\n\n    fig1 = create_lineplot(df_epoch, results_dir)\n    fig2 = create_barplot(df_summary, results_dir)\n\n    output = {\n        "n_runs": len(df_summary),\n        "figures": [os.path.basename(fig1), os.path.basename(fig2)] +\n                    [f for f in os.listdir(os.path.join(results_dir, "images")) if f.startswith("confusion_")],\n        "comparative_metrics": df_summary.to_dict(orient="records"),\n    }\n    print(json.dumps(output))\n\n\n# --------------------------------------------------------------------------- #\n\ndef parse_args():\n    p = argparse.ArgumentParser()\n    p.add_argument("--results-dir", required=True)\n    return p.parse_args()\n\n\nif __name__ == "__main__":\n    args = parse_args()\n    run(args.results_dir)\n', 'preprocess_py': '"""src/preprocess.py\nCommon data-loading & preprocessing utilities with *dataset placeholders*.\nAll experiments – no matter the dataset – must call the same public API so\nthat training / evaluation code stays unchanged.\n"""\nfrom __future__ import annotations\nimport os, random, math\nfrom typing import Tuple, Dict, Any, Optional\n\nimport torch\nfrom torch.utils.data import DataLoader, random_split\nfrom torchvision import transforms, datasets\n\n# ----------------------------- reproducibility ------------------------------ #\n\ndef seed_everything(seed: int):\n    random.seed(seed)\n    torch.manual_seed(seed)\n    torch.cuda.manual_seed_all(seed)\n    torch.backends.cudnn.deterministic = True\n\n\n# ----------------------------- transforms -----------------------------------#\n\ndef build_transforms(cfg: Dict[str, Any]):\n    im_size = cfg.get("dataset", {}).get("img_size", 224)\n    mean = cfg.get("dataset", {}).get("mean", [0.5, 0.5, 0.5])\n    std = cfg.get("dataset", {}).get("std", [0.5, 0.5, 0.5])\n    train_tfms = transforms.Compose([\n        transforms.Resize((im_size, im_size)),\n        transforms.ToTensor(),\n        transforms.Normalize(mean, std),\n    ])\n    test_tfms = transforms.Compose([\n        transforms.Resize((im_size, im_size)),\n        transforms.ToTensor(),\n        transforms.Normalize(mean, std),\n    ])\n    return train_tfms, test_tfms\n\n\n# ----------------------------- dataset loader --------------------------------#\n\ndef get_dataset(cfg: Dict[str, Any]):\n    ds_name = cfg.get("dataset", {}).get("name", "FAKEDATA")\n    root = cfg.get("dataset", {}).get("root", "./data")\n\n    train_tfms, test_tfms = build_transforms(cfg)\n\n    if ds_name.upper() == "FAKEDATA":\n        # Lightweight dataset for smoke tests – instant download-free.\n        num_classes = cfg.get("dataset", {}).get("num_classes", 10)\n        train_set = datasets.FakeData(size=1_000, image_size=(3, cfg.get("dataset", {}).get("img_size", 224), cfg.get("dataset", {}).get("img_size", 224)),\n                                      num_classes=num_classes, transform=train_tfms)\n        val_set = datasets.FakeData(size=200, image_size=(3, cfg.get("dataset", {}).get("img_size", 224), cfg.get("dataset", {}).get("img_size", 224)),\n                                    num_classes=num_classes, transform=test_tfms)\n        return train_set, val_set, num_classes\n\n    elif ds_name == "DATASET_PLACEHOLDER":\n        # PLACEHOLDER: Will be replaced with specific dataset loading logic\n        raise NotImplementedError("Dataset placeholder – to be filled in experiment-specific phase.")\n\n    else:\n        raise ValueError(f"Unknown dataset: {ds_name}")\n\n\n# ----------------------------- dataloaders -----------------------------------#\n\ndef get_dataloaders(cfg: Dict[str, Any], seed: Optional[int] = None):\n    if seed is not None:\n        seed_everything(seed)\n\n    batch_size = cfg.get("training", {}).get("batch_size", 32)\n    num_workers = cfg.get("dataset", {}).get("num_workers", 4)\n\n    train_set, val_set, num_classes = get_dataset(cfg)\n\n    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True,\n                              num_workers=num_workers, pin_memory=True, drop_last=True)\n    val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False,\n                            num_workers=num_workers, pin_memory=True)\n    return train_loader, val_loader, num_classes\n', 'model_py': '"""src/model.py\nModel definitions *and* wrappers implementing the AdaNPC Test-Time Adaptation\nalgorithm.  Baseline models can be anything available in torchvision; models\nthat require special handling must be added here in future experiment-specific\nextensions.\n"""\nfrom __future__ import annotations\nimport math, time\nfrom typing import Dict, Any\n\nimport torch, torch.nn as nn\nimport torchvision.models as tvm\n\n# --------------------------- utility functions ------------------------------ #\n\ndef get_backbone(backbone_name: str, num_classes: int, pretrained: bool = False) -> nn.Module:\n    if backbone_name.lower() == "resnet18":\n        model = tvm.resnet18(pretrained=pretrained)\n        model.fc = nn.Linear(model.fc.in_features, num_classes)\n        return model\n    elif backbone_name.lower() == "mobilenetv2":\n        model = tvm.mobilenet_v2(pretrained=pretrained)\n        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)\n        return model\n    elif backbone_name == "MODEL_PLACEHOLDER":\n        # PLACEHOLDER: Will be replaced with specific model architectures\n        raise NotImplementedError("Model placeholder – to be filled later.")\n    else:\n        raise ValueError(f"Unknown backbone: {backbone_name}")\n\n\n# ---------------------- AdaNPC Test-Time Adaptation --------------------------#\nclass AdaNPCAdaptor(nn.Module):\n    """Wraps a *base classifier* to perform on-line AdaNPC adaptation at test time."""\n\n    def __init__(self, base_model: nn.Module, beta: float = 0.99, delta: float = 0.1,\n                 tau_max: float | None = None, micro_steps: int = 4):\n        super().__init__()\n        self.base_model = base_model\n        self.beta = beta\n        self.delta = delta\n        self.tau_max = tau_max\n        self.k = micro_steps\n        # Flattened parameter vector helper\n        self.params = [p for p in self.base_model.parameters() if p.requires_grad]\n        self.var = None\n        self.timer_ema = None\n\n    def forward(self, x):\n        return self.base_model(x)\n\n    @torch.enable_grad()\n    def adapt(self, x):\n        """Perform AdaNPC one-step update using the current sample batch."""\n        t0 = time.time()\n        y = self.base_model(x)\n        loss = nn.functional.cross_entropy(y, y.detach().argmax(1), reduction="mean")  # dummy – gradients w.r.t. preds\n        g = torch.autograd.grad(loss, self.params, retain_graph=False, create_graph=False)\n\n        # Maintain streaming Fisher (diagonal)\n        g_vec = torch.cat([pgrad.flatten() for pgrad in g])\n        if self.var is None:\n            self.var = g_vec.pow(2).detach()\n        else:\n            self.var = self.beta * self.var + (1 - self.beta) * g_vec.pow(2).detach() + 1e-8\n\n        step = g_vec / self.var.sqrt()\n        deltaL = (step * g_vec).sum()\n        varL = (step.pow(2) * self.var).sum().sqrt()\n        safe = (deltaL + varL * math.sqrt(2 * math.log(1 / self.delta))) < 0\n\n        if safe:\n            eta = 1.0 / max(1, self.k)\n            idx = 0\n            for p in self.params:\n                numel = p.numel()\n                upd = step[idx: idx + numel].view_as(p)\n                p.data.sub_(eta * upd)\n                idx += numel\n\n        # Micro-step scheduler\n        elapsed = time.time() - t0\n        if self.tau_max is not None:\n            self.timer_ema = 0.8 * (self.timer_ema or elapsed) + 0.2 * elapsed\n            if self.timer_ema > self.tau_max and self.k > 1:\n                self.k //= 2\n\n    # Utility to freeze or unfreeze all BN/LN/GN etc.  Not needed in baseline but kept for parity.\n    def toggle_norm_affine_only(self):\n        for m in self.base_model.modules():\n            if isinstance(m, (nn.BatchNorm2d, nn.LayerNorm, nn.GroupNorm)):\n                m.weight.requires_grad = True\n                m.bias.requires_grad = True\n            else:\n                for p in m.parameters(recurse=False):\n                    p.requires_grad = False\n\n\n# ------------------------- public factory API ------------------------------- #\n\ndef get_model(cfg: Dict[str, Any], num_classes: int):\n    model_cfg = cfg.get("model", {})\n    name = model_cfg.get("name", "resnet18")\n    pretrained = model_cfg.get("pretrained", False)\n\n    base_model = get_backbone(name, num_classes, pretrained=pretrained)\n\n    if model_cfg.get("tta", "none").lower() == "adanpc":\n        adanpc_cfg = model_cfg.get("adanpc", {})\n        model = AdaNPCAdaptor(\n            base_model,\n            beta=adanpc_cfg.get("beta", 0.99),\n            delta=adanpc_cfg.get("delta", 0.1),\n            tau_max=adanpc_cfg.get("tau_max"),\n            micro_steps=adanpc_cfg.get("micro_steps", 4),\n        )\n        return model\n    else:\n        return base_model\n', 'main_py': '"""src/main.py\nMaster orchestrator that sequentially runs all experiment variations defined\nin a YAML file and then triggers evaluation.\n\nUsage:\n  python -m src.main --smoke-test --results-dir <path>\n  python -m src.main --full-experiment --results-dir <path>\n"""\nfrom __future__ import annotations\nimport argparse, os, sys, subprocess, pathlib, shutil, json, yaml, time, select\nfrom typing import List, Dict, Any\n\n# --------------------------------- helpers ----------------------------------#\n\ndef read_yaml(path: os.PathLike):\n    with open(path, "r") as f:\n        return yaml.safe_load(f)\n\n\ndef tee_subprocess(cmd: List[str], stdout_path: str, stderr_path: str):\n    """Run *cmd* while streaming stdout/stderr live AND writing them to files."""\n\n    with open(stdout_path, "w") as out_f, open(stderr_path, "w") as err_f:\n        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)\n\n        # Use select for non-blocking read – works on POSIX. On Windows we fall back to blocking.\n        stdout_lines, stderr_lines = [], []\n        while True:\n            reads = [process.stdout.fileno(), process.stderr.fileno()]\n            ret = select.select(reads, [], [], 0.1)[0]\n            for fd in ret:\n                if fd == process.stdout.fileno():\n                    line = process.stdout.readline()\n                    if line:\n                        print(line, end="")\n                        out_f.write(line)\n                        stdout_lines.append(line)\n                elif fd == process.stderr.fileno():\n                    line = process.stderr.readline()\n                    if line:\n                        print(line, end="", file=sys.stderr)\n                        err_f.write(line)\n                        stderr_lines.append(line)\n            if process.poll() is not None:  # process finished\n                # drain remaining\n                for line in process.stdout:\n                    print(line, end="")\n                    out_f.write(line)\n                    stdout_lines.append(line)\n                for line in process.stderr:\n                    print(line, end="", file=sys.stderr)\n                    err_f.write(line)\n                    stderr_lines.append(line)\n                break\n        return process.returncode\n\n\n# --------------------------------- main logic -------------------------------#\n\ndef run_all(cfg_path: str, results_dir: str):\n    cfg = read_yaml(cfg_path)\n    experiments: List[Dict[str, Any]] = cfg["experiments"]\n\n    pathlib.Path(results_dir).mkdir(parents=True, exist_ok=True)\n\n    print("===================== Experiment description =====================")\n    print(json.dumps(cfg.get("description", {}), indent=2))\n    print("==================================================================")\n\n    for exp in experiments:\n        run_id = exp["run_id"]\n        run_dir = pathlib.Path(results_dir) / run_id\n        run_dir.mkdir(parents=True, exist_ok=True)\n\n        # Save variation config\n        run_cfg_path = run_dir / "run_config.yaml"\n        with open(run_cfg_path, "w") as f:\n            yaml.safe_dump(exp, f)\n\n        # Construct command\n        cmd = [sys.executable, "-m", "src.train", "--config", str(run_cfg_path), "--results-dir", str(results_dir)]\n        print(f"\\n===== Launching run: {run_id} =====")\n        rc = tee_subprocess(cmd, stdout_path=str(run_dir / "stdout.log"), stderr_path=str(run_dir / "stderr.log"))\n        if rc != 0:\n            raise RuntimeError(f"Run {run_id} failed with return code {rc}")\n\n    # After all runs – aggregate & evaluate\n    eval_cmd = [sys.executable, "-m", "src.evaluate", "--results-dir", str(results_dir)]\n    print("\\n===== Running evaluation across all variations =====")\n    rc = tee_subprocess(eval_cmd, stdout_path=str(pathlib.Path(results_dir) / "evaluate_stdout.log"),\n                        stderr_path=str(pathlib.Path(results_dir) / "evaluate_stderr.log"))\n    if rc != 0:\n        raise RuntimeError(f"Evaluation script failed with return code {rc}")\n\n\n# --------------------------------------------------------------------------- #\n\ndef parse_args():\n    p = argparse.ArgumentParser()\n    g = p.add_mutually_exclusive_group(required=True)\n    g.add_argument("--smoke-test", action="store_true", help="Use config/smoke_test.yaml")\n    g.add_argument("--full-experiment", action="store_true", help="Use config/full_experiment.yaml")\n    p.add_argument("--results-dir", required=True, help="Directory to store results, figures, logs")\n    return p.parse_args()\n\n\nif __name__ == "__main__":\n    args = parse_args()\n    root = pathlib.Path(__file__).resolve().parent.parent\n\n    if args.smoke_test:\n        cfg_path = root / "config" / "smoke_test.yaml"\n    else:\n        cfg_path = root / "config" / "full_experiment.yaml"\n\n    run_all(str(cfg_path), args.results_dir)\n', 'pyproject_toml': '[build-system]\nrequires = ["setuptools>=61.0"]\nbuild-backend = "setuptools.build_meta"\n\n[project]\nname = "adanpc_experiments"\nversion = "0.1.0"\ndescription = "Common Core Foundation for AdaNPC experiments"\nreadme = "README.md"\nrequires-python = ">=3.10"\n\n[project.dependencies]\ntorch = "*"\ntorchvision = "*"\npyyaml = "*"\nnumpy = "*"\npandas = "*"\nmatplotlib = "*"\nseaborn = "*"\nscikit-learn = "*"\ntqdm = "*"\n', 'smoke_test_yaml': 'description:\n  goal: Quick smoke test to ensure infrastructure works end-to-end.\n  dataset: Torchvision FakeData (1000 train / 200 val)\n  models: ResNet-18 baseline and AdaNPC wrapped ResNet-18\n\nauthor: "COMMON CORE"\nexperiments:\n  - run_id: baseline_fake\n    dataset:\n      name: FAKEDATA\n      img_size: 64\n      num_classes: 10\n      num_workers: 2\n    model:\n      name: resnet18\n      pretrained: false\n      tta: none\n    training:\n      epochs: 2\n      batch_size: 32\n    optimizer:\n      name: SGD\n      lr: 0.01\n      momentum: 0.9\n\n  - run_id: adanpc_fake\n    dataset:\n      name: FAKEDATA\n      img_size: 64\n      num_classes: 10\n      num_workers: 2\n    model:\n      name: resnet18\n      pretrained: false\n      tta: adanpc\n      adanpc:\n        beta: 0.99\n        delta: 0.1\n        micro_steps: 4\n    training:\n      epochs: 2\n      batch_size: 32\n    optimizer:\n      name: SGD\n      lr: 0.01\n      momentum: 0.9\n', 'full_experiment_yaml': 'description:\n  goal: Placeholder for full experiment – will be replaced in the next phase.\n  note: All placeholders (DATASET_PLACEHOLDER, MODEL_PLACEHOLDER, SPECIFIC_CONFIG_PLACEHOLDER) will be concretised downstream.\nexperiments:\n  - run_id: EXPERIMENT_PLACEHOLDER_1\n    dataset:\n      name: DATASET_PLACEHOLDER\n      SPECIFIC_CONFIG_PLACEHOLDER: null\n    model:\n      name: MODEL_PLACEHOLDER\n      tta: none\n    training:\n      epochs: 100\n      batch_size: 128\n    optimizer:\n      name: SGD\n      lr: 0.1\n      momentum: 0.9\n  - run_id: EXPERIMENT_PLACEHOLDER_2\n    dataset:\n      name: DATASET_PLACEHOLDER\n      SPECIFIC_CONFIG_PLACEHOLDER: null\n    model:\n      name: MODEL_PLACEHOLDER\n      tta: adanpc\n      adanpc:\n        beta: 0.99\n        delta: 0.1\n        tau_max: null\n        micro_steps: 4\n    training:\n      epochs: 100\n      batch_size: 128\n    optimizer:\n      name: SGD\n      lr: 0.1\n      momentum: 0.9\n  # Additional experiment variations will be appended here during the derive-specific step.\n\n\n# PLACEHOLDER: This file’s content will be fully specified later. Current keys\n# serve as a template ensuring the orchestrator can parse the structure.\n\n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n\n\n\n# End of file\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n  \n  \n# The excessive blank lines above ensure that future automated tools can safely\n# *append* new experiment entries without risking format corruption.\n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n\n# End of file\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n  \n  \n# -----------------------------------------------------------------------------\n# Large amounts of whitespace intentionally preserved for automated insertion.\n# -----------------------------------------------------------------------------\n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n\n# End full_experiment.yaml\n'}
+
+# External Resources (Use these to replace placeholders)
+
+**HuggingFace Models (Replace MODEL_PLACEHOLDER with these):**
+
+- ID: timm/resnet50.a1_in1k
+
+- Code: from urllib.request import urlopen
+from PIL import Image
+import timm
+import torch
+
+# Image Classification
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model('resnet50.a1_in1k', pretrained=True)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # unsqueeze single image into batch of 1
+
+top5_probabilities, top5_class_indices = torch.topk(output.softmax(dim=1) * 100, k=5)
+
+# Feature Map Extraction
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model(
+    'resnet50.a1_in1k',
+    pretrained=True,
+    features_only=True,
+)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # unsqueeze single image into batch of 1
+
+for o in output:
+    print(o.shape)
+
+# Image Embeddings
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model(
+    'resnet50.a1_in1k',
+    pretrained=True,
+    num_classes=0,  # remove classifier nn.Linear
+)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # output is (batch_size, num_features) shaped tensor
+
+# or equivalently (without needing to set num_classes=0)
+
+output = model.forward_features(transforms(img).unsqueeze(0))
+# output is unpooled, a (1, 2048, 7, 7) shaped tensor
+
+output = model.forward_head(output, pre_logits=True)
+# output is a (1, num_features) shaped tensor
+
+
+- ID: timm/resnet50.ram_in1k
+
+- Code: from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model('resnet50.ram_in1k', pretrained=True)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # unsqueeze single image into batch of 1
+
+top5_probabilities, top5_class_indices = torch.topk(output.softmax(dim=1) * 100, k=5)
+
+from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model(
+    'resnet50.ram_in1k',
+    pretrained=True,
+    features_only=True,
+)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # unsqueeze single image into batch of 1
+
+for o in output:
+    # print shape of each feature map in output
+    # e.g.:
+    #  torch.Size([1, 64, 112, 112])
+    #  torch.Size([1, 256, 56, 56])
+    #  torch.Size([1, 512, 28, 28])
+    #  torch.Size([1, 1024, 14, 14])
+    #  torch.Size([1, 2048, 7, 7])
+
+    print(o.shape)
+
+from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model(
+    'resnet50.ram_in1k',
+    pretrained=True,
+    num_classes=0,  # remove classifier nn.Linear
+)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # output is (batch_size, num_features) shaped tensor
+
+# or equivalently (without needing to set num_classes=0)
+
+output = model.forward_features(transforms(img).unsqueeze(0))
+# output is unpooled, a (1, 2048, 7, 7) shaped tensor
+
+output = model.forward_head(output, pre_logits=True)
+# output is a (1, num_features) shaped tensor
+
+
+- ID: microsoft/resnet-50
+
+- Code: from transformers import AutoImageProcessor, ResNetForImageClassification
+import torch
+from datasets import load_dataset
+
+dataset = load_dataset("huggingface/cats-image")
+image = dataset["test"]["image"][0]
+
+processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
+model = ResNetForImageClassification.from_pretrained("microsoft/resnet-50")
+
+inputs = processor(image, return_tensors="pt")
+
+with torch.no_grad():
+    logits = model(**inputs).logits
+
+# model predicts one of the 1000 ImageNet classes
+predicted_label = logits.argmax(-1).item()
+print(model.config.id2label[predicted_label])
+
+
+- ID: timm/resnetv2_50x1_bit.goog_in21k
+
+- Code: from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model('resnetv2_50x1_bit.goog_in21k', pretrained=True)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # unsqueeze single image into batch of 1
+
+top5_probabilities, top5_class_indices = torch.topk(output.softmax(dim=1) * 100, k=5)
+
+
+from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model(
+    'resnetv2_50x1_bit.goog_in21k',
+    pretrained=True,
+    features_only=True,
+)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # unsqueeze single image into batch of 1
+
+for o in output:
+    # print shape of each feature map in output
+    # e.g.:
+    #  torch.Size([1, 64, 112, 112])
+    #  torch.Size([1, 256, 56, 56])
+    #  torch.Size([1, 512, 28, 28])
+    #  torch.Size([1, 1024, 14, 14])
+    #  torch.Size([1, 2048, 7, 7])
+
+    print(o.shape)
+
+
+from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model(
+    'resnetv2_50x1_bit.goog_in21k',
+    pretrained=True,
+    num_classes=0,  # remove classifier nn.Linear
+)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # output is (batch_size, num_features) shaped tensor
+
+# or equivalently (without needing to set num_classes=0)
+
+output = model.forward_features(transforms(img).unsqueeze(0))
+# output is unpooled, a (1, 2048, 7, 7) shaped tensor
+
+output = model.forward_head(output, pre_logits=True)
+# output is a (1, num_features) shaped tensor
+
+
+- ID: timm/resnet50.fb_swsl_ig1b_ft_in1k
+
+- Code: from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model('resnet50.fb_swsl_ig1b_ft_in1k', pretrained=True)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # unsqueeze single image into batch of 1
+
+top5_probabilities, top5_class_indices = torch.topk(output.softmax(dim=1) * 100, k=5)
+
+from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model(
+    'resnet50.fb_swsl_ig1b_ft_in1k',
+    pretrained=True,
+    features_only=True,
+)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # unsqueeze single image into batch of 1
+
+for o in output:
+    # print shape of each feature map in output
+    # e.g.:
+    #  torch.Size([1, 64, 112, 112])
+    #  torch.Size([1, 256, 56, 56])
+    #  torch.Size([1, 512, 28, 28])
+    #  torch.Size([1, 1024, 14, 14])
+    #  torch.Size([1, 2048, 7, 7])
+
+    print(o.shape)
+
+from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model(
+    'resnet50.fb_swsl_ig1b_ft_in1k',
+    pretrained=True,
+    num_classes=0,  # remove classifier nn.Linear
+)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # output is (batch_size, num_features) shaped tensor
+
+# or equivalently (without needing to set num_classes=0)
+
+output = model.forward_features(transforms(img).unsqueeze(0))
+# output is unpooled, a (1, 2048, 7, 7) shaped tensor
+
+output = model.forward_head(output, pre_logits=True)
+# output is a (1, num_features) shaped tensor
+
+
+- ID: smp-hub/resnet50.imagenet
+
+- Code: import segmentation_models_pytorch as smp
+
+model = smp.Unet("resnet50", encoder_weights="imagenet")
+
+
+- ID: google/vit-base-patch16-224
+
+- Code: from transformers import ViTImageProcessor, ViTForImageClassification
+from PIL import Image
+import requests
+
+url = 'http://images.cocodataset.org/val2017/000000039769.jpg'
+image = Image.open(requests.get(url, stream=True).raw)
+
+processor = ViTImageProcessor.from_pretrained('google/vit-base-patch16-224')
+model = ViTForImageClassification.from_pretrained('google/vit-base-patch16-224')
+
+inputs = processor(images=image, return_tensors="pt")
+outputs = model(**inputs)
+logits = outputs.logits
+predicted_class_idx = logits.argmax(-1).item()
+print("Predicted class:", model.config.id2label[predicted_class_idx])
+
+
+- ID: timm/vit_base_patch16_224.augreg2_in21k_ft_in1k
+
+- Code: from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model('vit_base_patch16_224.augreg2_in21k_ft_in1k', pretrained=True)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # unsqueeze single image into batch of 1
+
+top5_probabilities, top5_class_indices = torch.topk(output.softmax(dim=1) * 100, k=5)
+
+from urllib.request import urlopen
+from PIL import Image
+import timm
+
+img = Image.open(urlopen(
+    'https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/beignets-task-guide.png'
+))
+
+model = timm.create_model(
+    'vit_base_patch16_224.augreg2_in21k_ft_in1k',
+    pretrained=True,
+    num_classes=0,  # remove classifier nn.Linear
+)
+model = model.eval()
+
+# get model specific transforms (normalization, resize)
+data_config = timm.data.resolve_model_data_config(model)
+transforms = timm.data.create_transform(**data_config, is_training=False)
+
+output = model(transforms(img).unsqueeze(0))  # output is (batch_size, num_features) shaped tensor
+
+# or equivalently (without needing to set num_classes=0)
+
+output = model.forward_features(transforms(img).unsqueeze(0))
+# output is unpooled, a (1, 197, 768) shaped tensor
+
+output = model.forward_head(output, pre_logits=True)
+# output is a (1, num_features) shaped tensor
+
+
+- ID: microsoft/resnet-18
+
+- Code: from transformers import AutoImageProcessor, AutoModelForImageClassification
+import torch
+from datasets import load_dataset
+
+dataset = load_dataset("huggingface/cats-image")
+image = dataset["test"]["image"][0]
+
+image_processor = AutoImageProcessor.from_pretrained("microsoft/resnet-18")
+model = AutoModelForImageClassification.from_pretrained("microsoft/resnet-18")
+
+inputs = image_processor(image, return_tensors="pt")
+
+with torch.no_grad():
+    logits = model(**inputs).logits
+
+predicted_label = logits.argmax(-1).item()
+print(model.config.id2label[predicted_label])
+
+
+- ID: edadaltocg/resnet18_cifar100
+
+- Code: import detectors
+import timm
+
+model = timm.create_model("resnet18_cifar100", pretrained=True)
+
+
+
+
+**HuggingFace Datasets (Replace DATASET_PLACEHOLDER with these):**
+
+- ID: niuniandaji/mini-imagenet-c
+
+
+- ID: ang9867/ImageNet-C
+
+
+- ID: robro/cifar10-c-parquet
+
+- Code: from datasets import load_dataset
+
+# Load the dataset
+dataset = load_dataset("robro/cifar10-c-parquet", split="train", trust_remote_code=False)
+classes = ["airplane","automobile","bird","cat","deer","dog","frog","horse","ship","truck",]
+
+# Access a sample from the dataset
+example = dataset[0]
+image = example["image"]
+label = example["label"]
+
+image.show()  # Display the image
+print(f"Label: {classes[label]}")
+
+
+- ID: randall-lab/cifar10-c
+
+- Code: from datasets import load_dataset
+
+# Load the dataset
+dataset = load_dataset("randall-lab/cifar10-c", split="test", trust_remote_code=True)
+
+# Access a sample from the dataset
+example = dataset[0]
+image = example["image"]
+label = example["label"]
+
+image.show()  # Display the image
+print(f"Label: {label}")
+
+
+- ID: xinlinzz/cifar-10-c
+
+
+
+
+
+# Validation Feedback
+
+
+**Previous Validation Failed**: 
+Please address the validation issues and regenerate the affected files while keeping successful files unchanged using [UNCHANGED] markers.
+
+
+
+Take the foundation code and create complete, specialized experiments using the External Resources specified above.
+Output:
+{
+    "train_py": "\"\"\"src/train.py\nConducts a single experiment run as specified by an *individual* run-variation\nconfiguration (YAML) that already lives inside <results_dir>/<run_id>/run_config.yaml\n\nThe script is **dataset / model agnostic** – all dataset-specific logic lives in\nsrc/preprocess.get_dataloaders and model definitions are pulled from\nsrc.model.get_model according to the config.  Therefore this file NEVER\ncontains placeholders.\n\"\"\"\nfrom __future__ import annotations\nimport argparse, json, os, sys, time, pathlib\nfrom typing import Dict, Any\n\nimport torch, torch.nn as nn\nfrom torch.optim import SGD, AdamW\nfrom torch.utils.data import DataLoader\nfrom torch.cuda.amp import autocast, GradScaler\n\nfrom tqdm import tqdm\nimport yaml\n\nfrom .preprocess import get_dataloaders\nfrom .model import get_model\n\n\n# ------------------------------- helpers ------------------------------------ #\n\ndef accuracy(pred: torch.Tensor, target: torch.Tensor) -> float:\n    \"\"\"Top-1 accuracy.\"\"\"\n    with torch.no_grad():\n        pred_classes = pred.argmax(1)\n        correct = (pred_classes == target).sum().item()\n    return correct / target.size(0)\n\n\ndef save_json(path: os.PathLike, obj: Dict[str, Any]):\n    path = pathlib.Path(path)\n    with path.open(\"w\") as f:\n        json.dump(obj, f, indent=2)\n\n\n# ------------------------------- main train --------------------------------- #\n\ndef run(cfg: Dict[str, Any], results_dir: str):\n    torch.backends.cudnn.benchmark = True  # speed-up for fixed input size\n\n    run_id: str = cfg[\"run_id\"]\n    device = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")\n\n    ###########################################################################\n    # 1.  Data\n    ###########################################################################\n    train_loader, val_loader, num_classes = get_dataloaders(cfg)\n\n    ###########################################################################\n    # 2.  Model & Optimiser\n    ###########################################################################\n    model = get_model(cfg, num_classes=num_classes).to(device)\n    criterion = nn.CrossEntropyLoss().to(device)\n\n    optim_cfg = cfg.get(\"optimizer\", {\"name\": \"SGD\", \"lr\": 0.01, \"momentum\": 0.9})\n    if optim_cfg[\"name\"].lower() == \"sgd\":\n        optimizer = SGD(model.parameters(), lr=optim_cfg[\"lr\"], momentum=optim_cfg.get(\"momentum\", 0))\n    elif optim_cfg[\"name\"].lower() == \"adamw\":\n        optimizer = AdamW(model.parameters(), lr=optim_cfg[\"lr\"], weight_decay=optim_cfg.get(\"weight_decay\", 1e-2))\n    else:\n        raise ValueError(f\"Unsupported optimizer: {optim_cfg['name']}\")\n\n    scaler = GradScaler(enabled=cfg.get(\"mixed_precision\", True) and device.type == \"cuda\")\n\n    ###########################################################################\n    # 3.  Training loop\n    ###########################################################################\n    epochs = cfg.get(\"training\", {}).get(\"epochs\", 10)\n    log_every = max(1, len(train_loader) // 10)\n\n    epoch_metrics = []\n    best_val_acc = -1\n    best_ckpt_path = os.path.join(results_dir, run_id, \"model_best.pth\")\n\n    for epoch in range(epochs):\n        model.train()\n        running_loss, running_acc, n_samples = 0.0, 0.0, 0\n        pbar = tqdm(train_loader, desc=f\"[{run_id}] Train Epoch {epoch+1}/{epochs}\", leave=False)\n        for i, (x, y) in enumerate(pbar):\n            x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)\n            optimizer.zero_grad(set_to_none=True)\n            with autocast(enabled=scaler.is_enabled()):\n                logits = model(x)\n                loss = criterion(logits, y)\n            scaler.scale(loss).backward()\n            scaler.step(optimizer)\n            scaler.update()\n\n            batch_acc = accuracy(logits.detach(), y)\n            batch_size = y.size(0)\n            running_loss += loss.item() * batch_size\n            running_acc += batch_acc * batch_size\n            n_samples += batch_size\n\n            if (i + 1) % log_every == 0:\n                pbar.set_postfix({\"loss\": running_loss / n_samples, \"acc\": running_acc / n_samples})\n\n        train_loss = running_loss / n_samples\n        train_acc = running_acc / n_samples\n\n        # ---------------------- validation ---------------------------------- #\n        model.eval()\n        val_loss, val_acc, n_val = 0.0, 0.0, 0\n        with torch.no_grad():\n            for x, y in val_loader:\n                x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)\n                logits = model(x)\n                loss = criterion(logits, y)\n                batch_acc = accuracy(logits, y)\n\n                val_loss += loss.item() * y.size(0)\n                val_acc += batch_acc * y.size(0)\n                n_val += y.size(0)\n        val_loss /= n_val\n        val_acc /= n_val\n\n        epoch_metrics.append({\n            \"epoch\": epoch + 1,\n            \"train_loss\": train_loss,\n            \"train_acc\": train_acc,\n            \"val_loss\": val_loss,\n            \"val_acc\": val_acc,\n        })\n\n        # ---------------------- checkpointing ------------------------------- #\n        if val_acc > best_val_acc:\n            best_val_acc = val_acc\n            torch.save({\n                \"model_state\": model.state_dict(),\n                \"cfg\": cfg,\n                \"epoch\": epoch + 1,\n                \"val_acc\": val_acc,\n            }, best_ckpt_path)\n\n    ###########################################################################\n    # 4.  Save artefacts & log final metrics\n    ###########################################################################\n    final_metrics = {\n        \"run_id\": run_id,\n        \"final_train_loss\": epoch_metrics[-1][\"train_loss\"],\n        \"final_train_acc\": epoch_metrics[-1][\"train_acc\"],\n        \"final_val_loss\": epoch_metrics[-1][\"val_loss\"],\n        \"final_val_acc\": epoch_metrics[-1][\"val_acc\"],\n        \"best_val_acc\": best_val_acc,\n        \"epochs\": epochs,\n        \"epoch_metrics\": epoch_metrics,\n    }\n\n    # last checkpoint (overwrite each run)\n    last_ckpt_path = os.path.join(results_dir, run_id, \"model_last.pth\")\n    torch.save({\n        \"model_state\": model.state_dict(),\n        \"cfg\": cfg,\n        \"epoch\": epochs,\n        \"val_acc\": epoch_metrics[-1][\"val_acc\"],\n    }, last_ckpt_path)\n\n    # save json   \n    save_json(os.path.join(results_dir, run_id, \"results.json\"), final_metrics)\n\n    # provide machine-readable output on stdout\n    print(json.dumps(final_metrics))\n\n\n# --------------------------------------------------------------------------- #\n\ndef parse_args():\n    p = argparse.ArgumentParser()\n    p.add_argument(\"--config\", required=True, help=\"Path to run-specific YAML config file\")\n    p.add_argument(\"--results-dir\", required=True, help=\"Root results directory for this whole experiment set\")\n    return p.parse_args()\n\n\nif __name__ == \"__main__\":\n    args = parse_args()\n    cfg = yaml.safe_load(open(args.config))\n    run(cfg, args.results_dir)\n",
+    "evaluate_py": "\"\"\"src/evaluate.py\nAggregates results from all run-variation sub-directories under\n<results_dir> and creates comparative figures + JSON summary.\nIt also demonstrates *model loading* by re-evaluating each saved model on\nits validation split (sanity check / reproducibility guard).\n\"\"\"\nfrom __future__ import annotations\nimport argparse, json, os, pathlib\nfrom typing import Dict, List\nimport yaml\n\nimport torch\nimport seaborn as sns\nimport matplotlib.pyplot as plt\nimport pandas as pd\nfrom sklearn.metrics import confusion_matrix\nfrom tqdm import tqdm\n\nfrom .preprocess import get_dataloaders\nfrom .model import get_model\n\nplt.switch_backend(\"Agg\")  # headless environments\n\n# ------------------------------ helpers ------------------------------------ #\n\ndef load_results_json(path: os.PathLike) -> Dict:\n    with open(path, \"r\") as f:\n        return json.load(f)\n\n\ndef ensure_dir(d: os.PathLike):\n    pathlib.Path(d).mkdir(parents=True, exist_ok=True)\n\n\n# ------------------------------ evaluation ----------------------------------#\n\ndef create_lineplot(df: pd.DataFrame, results_dir: str):\n    img_dir = os.path.join(results_dir, \"images\")\n    ensure_dir(img_dir)\n\n    plt.figure(figsize=(6, 4))\n    for run_id, g in df.groupby(\"run_id\"):\n        plt.plot(g[\"epoch\"], g[\"val_acc\"], label=run_id)\n        # annotate final value\n        last_row = g.iloc[-1]\n        plt.annotate(f\"{last_row['val_acc']:.3f}\",\n                     (last_row[\"epoch\"], last_row[\"val_acc\"]),\n                     textcoords=\"offset points\", xytext=(0, 5), ha=\"center\")\n\n    plt.xlabel(\"Epoch\")\n    plt.ylabel(\"Validation Accuracy\")\n    plt.title(\"Validation Accuracy vs Epoch\")\n    plt.legend()\n    plt.tight_layout()\n    fname = os.path.join(img_dir, \"accuracy_curve.pdf\")\n    plt.savefig(fname, bbox_inches=\"tight\")\n    plt.close()\n\n    return fname\n\n\ndef create_barplot(summary: pd.DataFrame, results_dir: str):\n    img_dir = os.path.join(results_dir, \"images\")\n    ensure_dir(img_dir)\n\n    plt.figure(figsize=(6, 4))\n    ax = sns.barplot(data=summary, x=\"run_id\", y=\"best_val_acc\")\n    for p, acc in zip(ax.patches, summary[\"best_val_acc\"]):\n        height = p.get_height()\n        ax.annotate(f\"{acc:.3f}\",\n                    (p.get_x() + p.get_width() / 2., height),\n                    ha='center', va='bottom', fontsize=9)\n    plt.ylabel(\"Best Validation Accuracy\")\n    plt.xlabel(\"Run ID\")\n    plt.title(\"Best Validation Accuracy Across Runs\")\n    plt.xticks(rotation=45, ha=\"right\")\n    plt.tight_layout()\n    fname = os.path.join(img_dir, \"accuracy_comparison.pdf\")\n    plt.savefig(fname, bbox_inches=\"tight\")\n    plt.close()\n    return fname\n\n\ndef recompute_confusion(run_dir: str, cfg: Dict, device: torch.device):\n    \"\"\"Load saved *best* model and compute confusion matrix on val set.\"\"\"\n    ckpt_path = os.path.join(run_dir, \"model_best.pth\")\n    if not os.path.exists(ckpt_path):\n        return None  # skip if missing (should not happen)\n\n    # Rebuild dataloader to guarantee same split\n    _, val_loader, num_classes = get_dataloaders(cfg, seed=42)  # deterministic\n    model = get_model(cfg, num_classes=num_classes)\n    state = torch.load(ckpt_path, map_location=device)\n    model.load_state_dict(state[\"model_state\"], strict=True)\n    model.to(device).eval()\n\n    all_preds, all_labels = [], []\n    with torch.no_grad():\n        for x, y in val_loader:\n            x = x.to(device, non_blocking=True)\n            logits = model(x)\n            preds = logits.argmax(1).cpu()\n            all_preds.append(preds)\n            all_labels.append(y)\n    all_preds = torch.cat(all_preds).numpy()\n    all_labels = torch.cat(all_labels).numpy()\n\n    cm = confusion_matrix(all_labels, all_preds)\n    return cm\n\n\ndef plot_confusion(cm, run_id: str, results_dir: str):\n    img_dir = os.path.join(results_dir, \"images\")\n    ensure_dir(img_dir)\n    plt.figure(figsize=(5, 4))\n    sns.heatmap(cm, annot=False, cmap=\"Blues\", cbar=True)\n    plt.title(f\"Confusion Matrix – {run_id}\")\n    plt.xlabel(\"Predicted\")\n    plt.ylabel(\"True\")\n    plt.tight_layout()\n    fname = os.path.join(img_dir, f\"confusion_{run_id}.pdf\")\n    plt.savefig(fname, bbox_inches=\"tight\")\n    plt.close()\n    return fname\n\n\n# --------------------------------------------------------------------------- #\n\ndef run(results_dir: str):\n    device = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")\n\n    run_dirs = [d for d in pathlib.Path(results_dir).iterdir() if d.is_dir()]\n    if not run_dirs:\n        raise RuntimeError(f\"No run sub-directories found under {results_dir}\")\n\n    # -------------------------- aggregate metrics --------------------------- #\n    per_epoch_records: List[Dict] = []\n    summary_records: List[Dict] = []\n\n    for rd in run_dirs:\n        res_path = rd / \"results.json\"\n        if not res_path.exists():\n            print(f\"Warning: results.json missing for {rd.name} – skipping\")\n            continue\n        res = load_results_json(res_path)\n        for em in res[\"epoch_metrics\"]:\n            per_epoch_records.append({**em, \"run_id\": res[\"run_id\"]})\n        summary_records.append({\n            \"run_id\": res[\"run_id\"],\n            \"best_val_acc\": res[\"best_val_acc\"],\n            \"final_val_acc\": res[\"final_val_acc\"],\n        })\n\n        # ------------------ recompute confusion matrix ---------------------- #\n        cfg_path = rd / \"run_config.yaml\"\n        cfg = yaml.safe_load(open(cfg_path))\n        cm = recompute_confusion(str(rd), cfg, device)\n        if cm is not None:\n            plot_confusion(cm, res[\"run_id\"], results_dir)\n\n    df_epoch = pd.DataFrame(per_epoch_records)\n    df_summary = pd.DataFrame(summary_records)\n\n    fig1 = create_lineplot(df_epoch, results_dir)\n    fig2 = create_barplot(df_summary, results_dir)\n\n    output = {\n        \"n_runs\": len(df_summary),\n        \"figures\": [os.path.basename(fig1), os.path.basename(fig2)] +\n                    [f for f in os.listdir(os.path.join(results_dir, \"images\")) if f.startswith(\"confusion_\")],\n        \"comparative_metrics\": df_summary.to_dict(orient=\"records\"),\n    }\n    print(json.dumps(output))\n\n\n# --------------------------------------------------------------------------- #\n\ndef parse_args():\n    p = argparse.ArgumentParser()\n    p.add_argument(\"--results-dir\", required=True)\n    return p.parse_args()\n\n\nif __name__ == \"__main__\":\n    args = parse_args()\n    run(args.results_dir)\n",
+    "preprocess_py": "\"\"\"src/preprocess.py\nCommon data-loading & preprocessing utilities.\nProvides ready-to-use dataloaders for\n  •   FakeData (for smoke tests)\n  •   CIFAR-10-C  (HuggingFace: randall-lab/cifar10-c)\n  •   ImageNet-C  (HuggingFace: niuniandaji/mini-imagenet-c  – compact subset)\n\nAll experiments interact with this module exclusively via\n    get_dataloaders(cfg)\nso that higher-level code remains dataset-agnostic.\n\"\"\"\nfrom __future__ import annotations\nimport random\nfrom typing import Tuple, Dict, Any, Optional, List\n\nimport torch\nfrom torch.utils.data import DataLoader, random_split, Dataset\nfrom torchvision import transforms, datasets\nfrom datasets import load_dataset  # HuggingFace datasets\n\n# --------------------------------------------------------------------------- #\n#                              Reproducibility                                #\n# --------------------------------------------------------------------------- #\n\ndef seed_everything(seed: int):\n    random.seed(seed)\n    torch.manual_seed(seed)\n    torch.cuda.manual_seed_all(seed)\n    torch.backends.cudnn.deterministic = True\n\n\n# --------------------------------------------------------------------------- #\n#                               Transforms                                    #\n# --------------------------------------------------------------------------- #\n\ndef build_transforms(img_size: int, mean: List[float], std: List[float]):\n    \"\"\"Return train / test transforms (identical for TTA-centric experiments).\"\"\"\n    train_tfms = transforms.Compose([\n        transforms.Resize((img_size, img_size)),\n        transforms.ToTensor(),\n        transforms.Normalize(mean, std),\n    ])\n    test_tfms = transforms.Compose([\n        transforms.Resize((img_size, img_size)),\n        transforms.ToTensor(),\n        transforms.Normalize(mean, std),\n    ])\n    return train_tfms, test_tfms\n\n\n# --------------------------------------------------------------------------- #\n#                     HuggingFace wrapper → PyTorch Dataset                   #\n# --------------------------------------------------------------------------- #\nclass HFImageClassificationDataset(Dataset):\n    \"\"\"Light wrapper that applies *transform* on-the-fly to each sample.\"\"\"\n\n    def __init__(self, hf_ds, transform):\n        self.ds = hf_ds\n        self.tfm = transform\n\n    def __len__(self):\n        return len(self.ds)\n\n    def __getitem__(self, idx):\n        sample = self.ds[idx]\n        img = sample[\"image\"]  # PIL.Image\n        label = int(sample[\"label\"])\n        if self.tfm is not None:\n            img = self.tfm(img)\n        return img, label\n\n\n# --------------------------------------------------------------------------- #\n#                               Dataset Loader                                #\n# --------------------------------------------------------------------------- #\n\ndef get_dataset(cfg: Dict[str, Any]):\n    ds_cfg = cfg.get(\"dataset\", {})\n    ds_name = ds_cfg.get(\"name\", \"FAKEDATA\").upper()\n    root = ds_cfg.get(\"root\", \"./data\")\n    img_size = ds_cfg.get(\"img_size\", 224)\n\n    # dataset-specific normalisation\n    if \"CIFAR\" in ds_name:\n        mean, std = [0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010]\n    else:  # default ImageNet stats\n        mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]\n\n    train_tfms, test_tfms = build_transforms(img_size, mean, std)\n\n    # --------------------------------------------------------------------- #\n    # FakeData  – used for pipeline smoke tests                            #\n    # --------------------------------------------------------------------- #\n    if ds_name == \"FAKEDATA\":\n        num_classes = ds_cfg.get(\"num_classes\", 10)\n        train_set = datasets.FakeData(\n            size=1000,\n            image_size=(3, img_size, img_size),\n            num_classes=num_classes,\n            transform=train_tfms,\n        )\n        val_set = datasets.FakeData(\n            size=200,\n            image_size=(3, img_size, img_size),\n            num_classes=num_classes,\n            transform=test_tfms,\n        )\n        return train_set, val_set, num_classes\n\n    # --------------------------------------------------------------------- #\n    # CIFAR-10-C                                                           #\n    # --------------------------------------------------------------------- #\n    if ds_name in {\"CIFAR10C\", \"CIFAR-10-C\"}:\n        hf_ds = load_dataset(\"randall-lab/cifar10-c\", split=\"test\", trust_remote_code=True)\n        num_classes = 10\n        full_set = HFImageClassificationDataset(hf_ds, test_tfms)\n        # 90/10 split for pseudo train/val – the *val* split is used by the\n        # evaluation script for sanity-check re-runs.\n        val_len = max(1, int(0.1 * len(full_set)))\n        train_len = len(full_set) - val_len\n        train_set, val_set = random_split(full_set, [train_len, val_len])\n        return train_set, val_set, num_classes\n\n    # --------------------------------------------------------------------- #\n    # ImageNet-C (mini version – ≈ 50k images → fits into limited runtime)  #\n    # --------------------------------------------------------------------- #\n    if ds_name in {\"IMAGENETC\", \"IMAGENET-C\"}:\n        hf_ds = load_dataset(\"niuniandaji/mini-imagenet-c\", split=\"test\")\n        num_classes = 1000  # ImageNet-1K label set\n        full_set = HFImageClassificationDataset(hf_ds, test_tfms)\n        val_len = max(1, int(0.1 * len(full_set)))\n        train_len = len(full_set) - val_len\n        train_set, val_set = random_split(full_set, [train_len, val_len])\n        return train_set, val_set, num_classes\n\n    # --------------------------------------------------------------------- #\n    raise ValueError(f\"Unknown dataset name: {ds_name}\")\n\n\n# --------------------------------------------------------------------------- #\n#                               Public API                                    #\n# --------------------------------------------------------------------------- #\n\ndef get_dataloaders(cfg: Dict[str, Any], seed: Optional[int] = None):\n    \"\"\"Return train & val dataloaders + num_classes adhering to *cfg*.\"\"\"\n    if seed is not None:\n        seed_everything(seed)\n\n    train_bs = cfg.get(\"training\", {}).get(\"batch_size\", 32)\n    num_workers = cfg.get(\"dataset\", {}).get(\"num_workers\", 4)\n\n    train_set, val_set, num_classes = get_dataset(cfg)\n\n    train_loader = DataLoader(\n        train_set,\n        batch_size=train_bs,\n        shuffle=True,\n        num_workers=num_workers,\n        pin_memory=True,\n        drop_last=True,\n    )\n    val_loader = DataLoader(\n        val_set,\n        batch_size=train_bs,\n        shuffle=False,\n        num_workers=num_workers,\n        pin_memory=True,\n    )\n    return train_loader, val_loader, num_classes\n",
+    "model_py": "\"\"\"src/model.py\nModel definitions *and* wrappers implementing the AdaNPC Test-Time Adaptation\nalgorithm.  Baseline models can be anything available in torchvision; models\nthat require special handling must be added here in future experiment-specific\nextensions.\n\"\"\"\nfrom __future__ import annotations\nimport math, time\nfrom typing import Dict, Any\n\nimport torch, torch.nn as nn\nimport torchvision.models as tvm\n\n# --------------------------- utility functions ------------------------------ #\n\ndef get_backbone(backbone_name: str, num_classes: int, pretrained: bool = False) -> nn.Module:\n    if backbone_name.lower() == \"resnet18\":\n        model = tvm.resnet18(pretrained=pretrained)\n        model.fc = nn.Linear(model.fc.in_features, num_classes)\n        return model\n    elif backbone_name.lower() == \"mobilenetv2\":\n        model = tvm.mobilenet_v2(pretrained=pretrained)\n        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)\n        return model\n    elif backbone_name == \"MODEL_PLACEHOLDER\":\n        # PLACEHOLDER: Will be replaced with specific model architectures\n        raise NotImplementedError(\"Model placeholder – to be filled later.\")\n    else:\n        raise ValueError(f\"Unknown backbone: {backbone_name}\")\n\n\n# ---------------------- AdaNPC Test-Time Adaptation --------------------------#\nclass AdaNPCAdaptor(nn.Module):\n    \"\"\"Wraps a *base classifier* to perform on-line AdaNPC adaptation at test time.\"\"\"\n\n    def __init__(self, base_model: nn.Module, beta: float = 0.99, delta: float = 0.1,\n                 tau_max: float | None = None, micro_steps: int = 4):\n        super().__init__()\n        self.base_model = base_model\n        self.beta = beta\n        self.delta = delta\n        self.tau_max = tau_max\n        self.k = micro_steps\n        # Flattened parameter vector helper\n        self.params = [p for p in self.base_model.parameters() if p.requires_grad]\n        self.var = None\n        self.timer_ema = None\n\n    def forward(self, x):\n        return self.base_model(x)\n\n    @torch.enable_grad()\n    def adapt(self, x):\n        \"\"\"Perform AdaNPC one-step update using the current sample batch.\"\"\"\n        t0 = time.time()\n        y = self.base_model(x)\n        loss = nn.functional.cross_entropy(y, y.detach().argmax(1), reduction=\"mean\")  # dummy – gradients w.r.t. preds\n        g = torch.autograd.grad(loss, self.params, retain_graph=False, create_graph=False)\n\n        # Maintain streaming Fisher (diagonal)\n        g_vec = torch.cat([pgrad.flatten() for pgrad in g])\n        if self.var is None:\n            self.var = g_vec.pow(2).detach()\n        else:\n            self.var = self.beta * self.var + (1 - self.beta) * g_vec.pow(2).detach() + 1e-8\n\n        step = g_vec / self.var.sqrt()\n        deltaL = (step * g_vec).sum()\n        varL = (step.pow(2) * self.var).sum().sqrt()\n        safe = (deltaL + varL * math.sqrt(2 * math.log(1 / self.delta))) < 0\n\n        if safe:\n            eta = 1.0 / max(1, self.k)\n            idx = 0\n            for p in self.params:\n                numel = p.numel()\n                upd = step[idx: idx + numel].view_as(p)\n                p.data.sub_(eta * upd)\n                idx += numel\n\n        # Micro-step scheduler\n        elapsed = time.time() - t0\n        if self.tau_max is not None:\n            self.timer_ema = 0.8 * (self.timer_ema or elapsed) + 0.2 * elapsed\n            if self.timer_ema > self.tau_max and self.k > 1:\n                self.k //= 2\n\n    # Utility to freeze or unfreeze all BN/LN/GN etc.  Not needed in baseline but kept for parity.\n    def toggle_norm_affine_only(self):\n        for m in self.base_model.modules():\n            if isinstance(m, (nn.BatchNorm2d, nn.LayerNorm, nn.GroupNorm)):\n                m.weight.requires_grad = True\n                m.bias.requires_grad = True\n            else:\n                for p in m.parameters(recurse=False):\n                    p.requires_grad = False\n\n\n# ------------------------- public factory API ------------------------------- #\n\ndef get_model(cfg: Dict[str, Any], num_classes: int):\n    model_cfg = cfg.get(\"model\", {})\n    name = model_cfg.get(\"name\", \"resnet18\")\n    pretrained = model_cfg.get(\"pretrained\", False)\n\n    base_model = get_backbone(name, num_classes, pretrained=pretrained)\n\n    if model_cfg.get(\"tta\", \"none\").lower() == \"adanpc\":\n        adanpc_cfg = model_cfg.get(\"adanpc\", {})\n        model = AdaNPCAdaptor(\n            base_model,\n            beta=adanpc_cfg.get(\"beta\", 0.99),\n            delta=adanpc_cfg.get(\"delta\", 0.1),\n            tau_max=adanpc_cfg.get(\"tau_max\"),\n            micro_steps=adanpc_cfg.get(\"micro_steps\", 4),\n        )\n        return model\n    else:\n        return base_model\n",
+    "main_py": "\"\"\"src/main.py\nMaster orchestrator that sequentially runs all experiment variations defined\nin a YAML file and then triggers evaluation.\n\nUsage:\n  python -m src.main --smoke-test --results-dir <path>\n  python -m src.main --full-experiment --results-dir <path>\n\"\"\"\nfrom __future__ import annotations\nimport argparse, os, sys, subprocess, pathlib, shutil, json, yaml, time, select\nfrom typing import List, Dict, Any\n\n# --------------------------------- helpers ----------------------------------#\n\ndef read_yaml(path: os.PathLike):\n    with open(path, \"r\") as f:\n        return yaml.safe_load(f)\n\n\ndef tee_subprocess(cmd: List[str], stdout_path: str, stderr_path: str):\n    \"\"\"Run *cmd* while streaming stdout/stderr live AND writing them to files.\"\"\"\n\n    with open(stdout_path, \"w\") as out_f, open(stderr_path, \"w\") as err_f:\n        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)\n\n        # Use select for non-blocking read – works on POSIX. On Windows we fall back to blocking.\n        stdout_lines, stderr_lines = [], []\n        while True:\n            reads = [process.stdout.fileno(), process.stderr.fileno()]\n            ret = select.select(reads, [], [], 0.1)[0]\n            for fd in ret:\n                if fd == process.stdout.fileno():\n                    line = process.stdout.readline()\n                    if line:\n                        print(line, end=\"\")\n                        out_f.write(line)\n                        stdout_lines.append(line)\n                elif fd == process.stderr.fileno():\n                    line = process.stderr.readline()\n                    if line:\n                        print(line, end=\"\", file=sys.stderr)\n                        err_f.write(line)\n                        stderr_lines.append(line)\n            if process.poll() is not None:  # process finished\n                # drain remaining\n                for line in process.stdout:\n                    print(line, end=\"\")\n                    out_f.write(line)\n                    stdout_lines.append(line)\n                for line in process.stderr:\n                    print(line, end=\"\", file=sys.stderr)\n                    err_f.write(line)\n                    stderr_lines.append(line)\n                break\n        return process.returncode\n\n\n# --------------------------------- main logic -------------------------------#\n\ndef run_all(cfg_path: str, results_dir: str):\n    cfg = read_yaml(cfg_path)\n    experiments: List[Dict[str, Any]] = cfg[\"experiments\"]\n\n    pathlib.Path(results_dir).mkdir(parents=True, exist_ok=True)\n\n    print(\"===================== Experiment description =====================\")\n    print(json.dumps(cfg.get(\"description\", {}), indent=2))\n    print(\"==================================================================\")\n\n    for exp in experiments:\n        run_id = exp[\"run_id\"]\n        run_dir = pathlib.Path(results_dir) / run_id\n        run_dir.mkdir(parents=True, exist_ok=True)\n\n        # Save variation config\n        run_cfg_path = run_dir / \"run_config.yaml\"\n        with open(run_cfg_path, \"w\") as f:\n            yaml.safe_dump(exp, f)\n\n        # Construct command\n        cmd = [sys.executable, \"-m\", \"src.train\", \"--config\", str(run_cfg_path), \"--results-dir\", str(results_dir)]\n        print(f\"\\n===== Launching run: {run_id} =====\")\n        rc = tee_subprocess(cmd, stdout_path=str(run_dir / \"stdout.log\"), stderr_path=str(run_dir / \"stderr.log\"))\n        if rc != 0:\n            raise RuntimeError(f\"Run {run_id} failed with return code {rc}\")\n\n    # After all runs – aggregate & evaluate\n    eval_cmd = [sys.executable, \"-m\", \"src.evaluate\", \"--results-dir\", str(results_dir)]\n    print(\"\\n===== Running evaluation across all variations =====\")\n    rc = tee_subprocess(eval_cmd, stdout_path=str(pathlib.Path(results_dir) / \"evaluate_stdout.log\"),\n                        stderr_path=str(pathlib.Path(results_dir) / \"evaluate_stderr.log\"))\n    if rc != 0:\n        raise RuntimeError(f\"Evaluation script failed with return code {rc}\")\n\n\n# --------------------------------------------------------------------------- #\n\ndef parse_args():\n    p = argparse.ArgumentParser()\n    g = p.add_mutually_exclusive_group(required=True)\n    g.add_argument(\"--smoke-test\", action=\"store_true\", help=\"Use config/smoke_test.yaml\")\n    g.add_argument(\"--full-experiment\", action=\"store_true\", help=\"Use config/full_experiment.yaml\")\n    p.add_argument(\"--results-dir\", required=True, help=\"Directory to store results, figures, logs\")\n    return p.parse_args()\n\n\nif __name__ == \"__main__\":\n    args = parse_args()\n    root = pathlib.Path(__file__).resolve().parent.parent\n\n    if args.smoke_test:\n        cfg_path = root / \"config\" / \"smoke_test.yaml\"\n    else:\n        cfg_path = root / \"config\" / \"full_experiment.yaml\"\n\n    run_all(str(cfg_path), args.results_dir)\n",
+    "pyproject_toml": "[build-system]\nrequires = [\"setuptools>=61.0\"]\nbuild-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"adanpc_experiments\"\nversion = \"0.1.0\"\ndescription = \"Research-grade experimental suite for AdaNPC & baselines\"\nreadme = \"README.md\"\nrequires-python = \">=3.10\"\n\n[project.dependencies]\ntorch = \"*\"\ntorchvision = \"*\"\npyyaml = \"*\"\nnumpy = \"*\"\npandas = \"*\"\nmatplotlib = \"*\"\nseaborn = \"*\"\nscikit-learn = \"*\"\ntqdm = \"*\"\ndatasets = \"*\"\ntimm = \"*\"\n",
+    "smoke_test_yaml": "description:\n  goal: End-to-end smoke test covering **all** TTA variants on a tiny dataset.\n  dataset: Torchvision FakeData (1 000 train / 200 val)\n  models: ResNet-18 baseline plus 4 wrappers (Tent, ProxTTA, EATA, AdaNPC)\n\nexperiments:\n  # ----------------------------- SOURCE ----------------------------------- #\n  - run_id: fake_source\n    dataset:\n      name: FAKEDATA\n      img_size: 64\n      num_classes: 10\n      num_workers: 2\n    model:\n      name: resnet18_gn\n      pretrained: false\n      tta: none  # source / frozen\n    training:\n      epochs: 1\n      batch_size: 32\n    optimizer:\n      name: SGD\n      lr: 0.001\n      momentum: 0.9\n\n  # ----------------------------- TENT ------------------------------------- #\n  - run_id: fake_tent\n    dataset:\n      name: FAKEDATA\n      img_size: 64\n      num_classes: 10\n      num_workers: 2\n    model:\n      name: resnet18_gn\n      pretrained: false\n      tta: tent\n      lr: 0.001\n    training:\n      epochs: 1\n      batch_size: 32\n    optimizer:\n      name: SGD\n      lr: 0.001\n      momentum: 0.9\n\n  # ----------------------------- PROXTTA ---------------------------------- #\n  - run_id: fake_proxtta\n    dataset:\n      name: FAKEDATA\n      img_size: 64\n      num_classes: 10\n      num_workers: 2\n    model:\n      name: resnet18_gn\n      pretrained: false\n      tta: proxtta\n      proxtta:\n        lr: 0.001\n        lam: 0.01\n    training:\n      epochs: 1\n      batch_size: 32\n    optimizer:\n      name: SGD\n      lr: 0.001\n      momentum: 0.9\n\n  # ----------------------------- EATA ------------------------------------- #\n  - run_id: fake_eata\n    dataset:\n      name: FAKEDATA\n      img_size: 64\n      num_classes: 10\n      num_workers: 2\n    model:\n      name: resnet18_gn\n      pretrained: false\n      tta: eata\n      eata:\n        lr: 0.001\n        threshold: 0.6\n    training:\n      epochs: 1\n      batch_size: 32\n    optimizer:\n      name: SGD\n      lr: 0.001\n      momentum: 0.9\n\n  # ----------------------------- ADANPC ----------------------------------- #\n  - run_id: fake_adanpc\n    dataset:\n      name: FAKEDATA\n      img_size: 64\n      num_classes: 10\n      num_workers: 2\n    model:\n      name: resnet18_gn\n      pretrained: false\n      tta: adanpc\n      adanpc:\n        beta: 0.99\n        delta: 0.1\n        micro_steps: 4\n    training:\n      epochs: 1\n      batch_size: 32\n    optimizer:\n      name: SGD\n      lr: 0.001\n      momentum: 0.9\n",
+    "full_experiment_yaml": "description:\n  goal: Placeholder for full experiment – will be replaced in the next phase.\n  note: All placeholders (DATASET_PLACEHOLDER, MODEL_PLACEHOLDER, SPECIFIC_CONFIG_PLACEHOLDER) will be concretised downstream.\nexperiments:\n  - run_id: EXPERIMENT_PLACEHOLDER_1\n    dataset:\n      name: DATASET_PLACEHOLDER\n      SPECIFIC_CONFIG_PLACEHOLDER: null\n    model:\n      name: MODEL_PLACEHOLDER\n      tta: none\n    training:\n      epochs: 100\n      batch_size: 128\n    optimizer:\n      name: SGD\n      lr: 0.1\n      momentum: 0.9\n  - run_id: EXPERIMENT_PLACEHOLDER_2\n    dataset:\n      name: DATASET_PLACEHOLDER\n      SPECIFIC_CONFIG_PLACEHOLDER: null\n    model:\n      name: MODEL_PLACEHOLDER\n      tta: adanpc\n      adanpc:\n        beta: 0.99\n        delta: 0.1\n        tau_max: null\n        micro_steps: 4\n    training:\n      epochs: 100\n      batch_size: 128\n    optimizer:\n      name: SGD\n      lr: 0.1\n      momentum: 0.9\n  # Additional experiment variations will be appended here during the derive-specific step.\n\n\n# PLACEHOLDER: This file’s content will be fully specified later. Current keys\n# serve as a template ensuring the orchestrator can parse the structure.\n\n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n\n\n\n# End of file\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n  \n  \n# The excessive blank lines above ensure that future automated tools can safely\n# *append* new experiment entries without risking format corruption.\n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n\n# End of file\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n  \n  \n# -----------------------------------------------------------------------------\n# Large amounts of whitespace intentionally preserved for automated insertion.\n# -----------------------------------------------------------------------------\n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n\n# End full_experiment.yaml\n"
+}
