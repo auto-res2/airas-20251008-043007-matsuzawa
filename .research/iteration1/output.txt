@@ -35,3 +35,12 @@
 ==================================================================
 
 ===== Launching run: source_fake =====
+=== [PHASE 1/2] Smoke test start Wed Oct  8 07:02:28 AM UTC 2025 ===
+===================== Experiment description =====================
+{
+  "goal": "Quick smoke test covering all TTA wrappers (Source, Tent, ProxTTA, EATA, AdaNPC).",
+  "dataset": "Torchvision FakeData (1000 train / 200 val)"
+}
+==================================================================
+
+===== Launching run: source_fake =====
